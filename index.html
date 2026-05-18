@@ -390,9 +390,17 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
         <button class="btn bblock" onclick="removeBots()" style="background:#f3e5f5;color:#6a1b9a;border:2px solid #ce93d8;margin-top:.4rem;font-size:.8rem">🗑️ Eliminar todos los bots</button>
       </div>
     </div>
+    <!-- Carga rápida con texto -->
+    <div class="card">
+      <div class="ch">🤖 Carga rápida desde texto</div>
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Pegá un resultado por línea. Acepta nombres completos, códigos de 3 letras y separador <code>-</code>, <code>:</code> o espacio.</p>
+      <textarea id="admin-text" rows="6" placeholder="Argentina 2 - 1 Marruecos&#10;Brasil 3 0 Croacia&#10;ESP 1-1 ALE&#10;Países Bajos 2 1 Japón" style="width:100%;font-family:monospace;font-size:.85rem;padding:.5rem;border:2px solid var(--border);border-radius:8px;resize:vertical;box-sizing:border-box"></textarea>
+      <button class="btn bpu bblock" onclick="applyTextResults()" style="margin-top:.5rem">🤖 Parsear y cargar</button>
+      <div id="admin-text-errors" style="margin-top:.5rem"></div>
+    </div>
     <!-- Results -->
     <div class="card">
-      <div class="ch">⚽ Resultados reales</div>
+      <div class="ch">⚽ Resultados reales (manual)</div>
       <div class="stabs" id="admin-gtabs"></div>
       <div id="admin-c"></div>
     </div>
@@ -435,6 +443,9 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db   = firebase.firestore();
+
+const SUPER_ADMIN_EMAIL = 'marceldatos@gmail.com';
+function isSuperAdmin(){ return currentUser?.email === SUPER_ADMIN_EMAIL; }
 
 /* ═══════════════ WORLD CUP DATA ═══════════════ */
 const GROUPS = {
@@ -480,10 +491,12 @@ function esc(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 
 /* ═══════════════ STATE ═══════════════ */
 let currentUser = null;
-let currentGroup = null;   // { id, name, code, ownerUid, results, simResults }
+let currentGroup = null;   // { id, name, code, ownerUid, simResults }
 let groupMembers = {};     // { uid: { displayName, photoURL, predictions, isBot } }
+let globalResults = {};    // resultados reales globales del Mundial (compartidos por todos los grupos)
 let unsubGroup   = null;
 let unsubMembers = null;
+let unsubGlobal  = null;
 let curGroup     = 'A';
 let selPhases    = new Set(['groups']);
 let simMode      = false;
@@ -493,13 +506,24 @@ let pendingWrites = {};    // debounce map
 auth.onAuthStateChanged(user => {
   if (user) {
     currentUser = user;
+    attachGlobalResults();
     showScreen('dashboard');
     loadMyGroups();
   } else {
+    if (unsubGlobal) { unsubGlobal(); unsubGlobal = null; }
+    globalResults = {};
     currentUser = null;
     showScreen('login');
   }
 });
+
+function attachGlobalResults(){
+  if (unsubGlobal) return;
+  unsubGlobal = db.collection('globalResults').doc('wc2026').onSnapshot(doc => {
+    globalResults = doc.exists ? doc.data() : {};
+    renderCurrentView();
+  }, () => { globalResults = {}; });
+}
 
 function signIn(){
   const prov = new firebase.auth.GoogleAuthProvider();
@@ -581,7 +605,7 @@ async function doCreate(){
   const groupRef=db.collection('grupos').doc();
   const batch=db.batch();
   batch.set(groupRef,{name,ownerUid:currentUser.uid,ownerName:currentUser.displayName,code,
-    results:{},simResults:{},createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    simResults:{},createdAt:firebase.firestore.FieldValue.serverTimestamp()});
   batch.set(db.collection('codes').doc(code),{groupId:groupRef.id});
   batch.set(groupRef.collection('members').doc(currentUser.uid),{
     displayName:currentUser.displayName,photoURL:currentUser.photoURL||'',
@@ -629,9 +653,8 @@ function enterGroup(groupId){
     currentGroup={id:groupId,...doc.data()};
     document.getElementById('app-title').textContent=currentGroup.name;
     document.getElementById('app-code').textContent=`📋 ${currentGroup.code}`;
-    // Show admin tab only for owner
-    document.getElementById('admin-tab').style.display=
-      currentUser.uid===currentGroup.ownerUid?'block':'none';
+    // Show admin tab only for super-admin
+    document.getElementById('admin-tab').style.display=isSuperAdmin()?'block':'none';
     renderCurrentView();
   });
   // Listener: members
@@ -698,13 +721,13 @@ function renderPreds(){
   [1,2,3].forEach(j=>{
     html+=`<div class="jl">Jornada ${j}</div>`;
     gm.filter(m=>m.jornada===j).forEach(m=>{
-      const p=pred[m.id]||{},r=currentGroup?.results?.[m.id];
+      const p=pred[m.id]||{},r=globalResults?.[m.id];
       let ind='';
-      if(r!==undefined&&p.h!==undefined&&p.h!==''){
+      if(r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
         const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
         ind=(+p.h===r.h&&+p.a===r.a)?'<span class="ie">★★★</span>':po===ro?'<span class="ir">★</span>':'<span class="iw">✗</span>';
       }
-      const rD=r!==undefined?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
+      const rD=(r&&r.h!==undefined)?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
       const hv=p.h!==undefined&&p.h!==''?p.h:'',av=p.a!==undefined&&p.a!==''?p.a:'';
       html+=`<div class="mr">
         <div class="tn h">${m.home.f} ${m.home.n}</div>
@@ -766,7 +789,7 @@ function renderBracket(){
       <select class="fi" style="margin-top:.7rem" onchange="saveSpec('champion',this.value)">
         <option value="">– Elegí el campeón –</option>${tOpts(pred.champion||'')}
       </select>
-      ${currentGroup?.results?.champion?`<div style="margin-top:.4rem;font-size:.78rem;opacity:.9">Campeón real: ${ALL_TEAMS.find(t=>t.n===currentGroup.results.champion)?.f||''} ${currentGroup.results.champion}</div>`:''}
+      ${globalResults?.champion?`<div style="margin-top:.4rem;font-size:.78rem;opacity:.9">Campeón real: ${ALL_TEAMS.find(t=>t.n===globalResults.champion)?.f||''} ${globalResults.champion}</div>`:''}
     </div>
     <div class="card"><div class="ch">🥈 Subcampeón <span style="font-size:.68rem;color:var(--muted)">(+3 pts)</span></div>
       <select class="fi" onchange="saveSpec('runnerUp',this.value)"><option value="">–</option>${tOpts(pred.runnerUp||'')}</select></div>
@@ -792,11 +815,11 @@ function saveSpec(key,val){
 /* ═══════════════ SCORING ═══════════════ */
 function score(uid,useSim){
   const pred=groupMembers[uid]?.predictions||{};
-  const res=useSim?mergedRes():currentGroup?.results||{};
+  const res=useSim?mergedRes():(globalResults||{});
   let exact=0,r=0,bonus=0;
   MATCHES.forEach(m=>{
     const p=pred[m.id],rv=res[m.id];
-    if(!rv||!p||p.h===''||p.h===undefined)return;
+    if(!rv||rv.h===undefined||!p||p.h===''||p.h===undefined)return;
     if(+p.h===rv.h&&+p.a===rv.a)exact++;
     else if(Math.sign(p.h-p.a)===Math.sign(rv.h-rv.a))r++;
   });
@@ -806,7 +829,7 @@ function score(uid,useSim){
   GK.forEach(g=>{if(res['gw_'+g]&&pred['gw_'+g]===res['gw_'+g])bonus+=2;});
   return{exact,r,bonus,total:exact*3+r+bonus};
 }
-function mergedRes(){return Object.assign({},currentGroup?.simResults||{},currentGroup?.results||{});}
+function mergedRes(){return Object.assign({},currentGroup?.simResults||{},globalResults||{});}
 
 /* ═══════════════ TABLA ═══════════════ */
 function toggleSim(){
@@ -853,13 +876,13 @@ function renderTabla(){
     </div>`;
   }).join('');
 
-  const results=simMode?mergedRes():currentGroup?.results||{};
-  const done=MATCHES.filter(m=>results[m.id]!==undefined);
+  const results=simMode?mergedRes():(globalResults||{});
+  const done=MATCHES.filter(m=>results[m.id]&&results[m.id].h!==undefined);
   if(!done.length){document.getElementById('compare-c').innerHTML='<p style="color:var(--muted);font-size:.83rem">Sin resultados aún.</p>';return;}
   const recent=done.slice(-6).reverse();
   document.getElementById('compare-c').innerHTML=recent.map(m=>{
     const r=results[m.id];
-    const isSim=!currentGroup?.results?.[m.id]&&currentGroup?.simResults?.[m.id];
+    const isSim=!globalResults?.[m.id]&&currentGroup?.simResults?.[m.id];
     const preds=Object.entries(groupMembers).map(([uid,mem])=>{
       const pd=mem.predictions?.[m.id]||{};
       if(pd.h===undefined||pd.h==='')return`<span class="cpi cpu">${mem.displayName.split(' ')[0]}: ?</span>`;
@@ -920,9 +943,9 @@ function showProfile(uid){
     const gwPred=pred['gw_'+g];
     const gwTeam=gwPred?GROUPS[g].teams.find(t=>t.n===gwPred):null;
     const rows=gm.map(m=>{
-      const p=pred[m.id]||{},r=currentGroup?.results?.[m.id];
+      const p=pred[m.id]||{},r=globalResults?.[m.id];
       let ind='',cls='';
-      if(r!==undefined&&p.h!==undefined&&p.h!==''){
+      if(r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
         const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
         if(+p.h===r.h&&+p.a===r.a){ind='★★★';cls='ie';}
         else if(po===ro){ind='★';cls='ir';}
@@ -932,7 +955,7 @@ function showProfile(uid){
       return`<div class="ppr">
         <span class="ppr-m">${m.home.f} ${m.home.n} vs ${m.away.n} ${m.away.f}</span>
         <span class="ppr-s">${hasP?`${p.h}-${p.a}`:'?'}</span>
-        <span class="ppr-i"><span class="${cls}">${ind}</span>${r!==undefined?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
+        <span class="ppr-i"><span class="${cls}">${ind}</span>${(r&&r.h!==undefined)?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
       </div>`;
     }).join('');
     return`<div style="margin-bottom:.7rem">
@@ -992,7 +1015,7 @@ function renderAdmin(){
 function renderAdminMatches(){
   const gm=MATCHES.filter(m=>m.group===curGroup);
   document.getElementById('admin-c').innerHTML=gm.map(m=>{
-    const r=currentGroup?.results?.[m.id]||{};
+    const r=globalResults?.[m.id]||{};
     return`<div class="mr">
       <div class="tn h" style="font-size:.76rem">${m.home.f} ${m.home.n}</div>
       <div class="siw">
@@ -1008,8 +1031,9 @@ function renderAdminMatches(){
 }
 
 function renderAdminSpecial(){
+  // legacy renderer (kept for compat with the special card)
   const tOpts=sel=>ALL_TEAMS.map(t=>`<option value="${t.n}"${t.n===sel?' selected':''}>${t.f} ${t.n}</option>`).join('');
-  const res=currentGroup?.results||{};
+  const res=globalResults||{};
   const gwRows=GK.map(g=>`<div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem">
     <span class="gbadge">${g}</span>
     <select class="fi" style="flex:1" onchange="saveSpecResult('gw_${g}',this.value)">
@@ -1030,33 +1054,101 @@ function renderAdminSpecial(){
 function setAdminGroup(g){curGroup=g;renderAdmin();}
 
 function saveResult(matchId,side,val){
-  if(!currentGroup)return;
-  const update={};
-  if(val===''){
-    // Need to delete the field – use a map
-    const cur={...(currentGroup.results?.[matchId]||{})};
-    delete cur[side];
-    update[`results.${matchId}`]=Object.keys(cur).length?cur:firebase.firestore.FieldValue.delete();
-  }else{
-    update[`results.${matchId}.${side}`]=parseInt(val);
-  }
-  db.collection('grupos').doc(currentGroup.id).update(update).catch(()=>{});
-  toast('✅ Guardado');
+  if(!isSuperAdmin()){toast('❌ Solo super-admin puede cargar resultados');return;}
+  const v=val===''?firebase.firestore.FieldValue.delete():parseInt(val);
+  db.collection('globalResults').doc('wc2026')
+    .set({[matchId]:{[side]:v}},{merge:true})
+    .then(()=>toast('✅ Guardado'))
+    .catch(e=>toast('❌ '+e.message));
 }
 
 function saveSpecResult(key,val){
-  if(!currentGroup)return;
-  db.collection('grupos').doc(currentGroup.id)
-    .update({[`results.${key}`]:val||firebase.firestore.FieldValue.delete()})
-    .catch(()=>{});
-  toast('✅ Guardado');
+  if(!isSuperAdmin()){toast('❌ Solo super-admin puede cargar resultados');return;}
+  const v=val||firebase.firestore.FieldValue.delete();
+  db.collection('globalResults').doc('wc2026')
+    .set({[key]:v},{merge:true})
+    .then(()=>toast('✅ Guardado'))
+    .catch(e=>toast('❌ '+e.message));
 }
 
 function resetResults(){
-  if(!currentGroup)return;
-  if(!confirm('¿Borrar todos los resultados reales del grupo?'))return;
-  db.collection('grupos').doc(currentGroup.id).update({results:{},simResults:{}});
-  toast('🗑️ Resultados borrados');
+  if(!isSuperAdmin()){toast('❌ Solo super-admin');return;}
+  if(!confirm('¿Borrar TODOS los resultados reales globales del Mundial? Afecta a todos los grupos.'))return;
+  db.collection('globalResults').doc('wc2026').set({})
+    .then(()=>toast('🗑️ Resultados globales borrados'))
+    .catch(e=>toast('❌ '+e.message));
+}
+
+/* ═══════════════ PARSER DE TEXTO ═══════════════ */
+const TEAM_ALIASES={
+  arg:'Argentina',bra:'Brasil',mex:'México',esp:'España',por:'Portugal',
+  fra:'Francia',ale:'Alemania',ger:'Alemania',eng:'Inglaterra',ing:'Inglaterra',
+  ned:'Países Bajos',hol:'Países Bajos',pbj:'Países Bajos',jpn:'Japón',jap:'Japón',
+  col:'Colombia',uru:'Uruguay',par:'Paraguay',usa:'EE.UU.',eeuu:'EE.UU.',
+  kor:'Corea del Sur',cor:'Corea del Sur',cro:'Croacia',bel:'Bélgica',
+  egy:'Egipto',ira:'Irán',irn:'Irán',nzl:'Nueva Zelanda',aus:'Australia',
+  tur:'Turquía',sui:'Suiza',qat:'Qatar',bih:'Bosnia-Herz.',bos:'Bosnia-Herz.',
+  mar:'Marruecos',hai:'Haití',esc:'Escocia',sco:'Escocia',cur:'Curazao',
+  civ:'Costa de Marfil',cdm:'Costa de Marfil',ecu:'Ecuador',tun:'Túnez',
+  swe:'Suecia',sue:'Suecia',cpv:'Cabo Verde',ksa:'Arabia Saudita',
+  ara:'Arabia Saudita',sau:'Arabia Saudita',sen:'Senegal',nor:'Noruega',
+  irq:'Irak',alg:'Argelia',aut:'Austria',jor:'Jordania',uzb:'Uzbekistán',
+  cod:'Congo DR',cgo:'Congo DR',gha:'Ghana',pan:'Panamá',rsa:'Sudáfrica',
+  sud:'Sudáfrica',cze:'Rep. Checa',che:'Rep. Checa','rep':'Rep. Checa',can:'Canadá'
+};
+const DIACRITIC_RE=new RegExp('[\\u0300-\\u036f]','g');
+function cleanStr(s){return s.normalize('NFD').replace(DIACRITIC_RE,'').toLowerCase().trim();}
+function findTeam(name){
+  const q=cleanStr(name);
+  if(!q)return null;
+  let t=ALL_TEAMS.find(x=>cleanStr(x.n)===q);if(t)return t;
+  if(TEAM_ALIASES[q])return ALL_TEAMS.find(x=>x.n===TEAM_ALIASES[q]);
+  t=ALL_TEAMS.find(x=>{const cn=cleanStr(x.n);return cn.startsWith(q)&&q.length>=3;});if(t)return t;
+  t=ALL_TEAMS.find(x=>q.startsWith(cleanStr(x.n))&&cleanStr(x.n).length>=4);if(t)return t;
+  return null;
+}
+function parseResultsText(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const ok=[],errors=[];
+  const re=/^(.+?)\s+(\d+)\s*[-:x]?\s*(\d+)\s+(.+?)$/i;
+  lines.forEach(line=>{
+    const m=line.match(re);
+    if(!m){errors.push({line,reason:'formato no reconocido'});return;}
+    const[,homeName,hStr,aStr,awayName]=m;
+    const home=findTeam(homeName),away=findTeam(awayName);
+    if(!home){errors.push({line,reason:`equipo no encontrado: "${homeName}"`});return;}
+    if(!away){errors.push({line,reason:`equipo no encontrado: "${awayName}"`});return;}
+    const match=MATCHES.find(mt=>mt.home.n===home.n&&mt.away.n===away.n);
+    if(!match){
+      const rev=MATCHES.find(mt=>mt.home.n===away.n&&mt.away.n===home.n);
+      if(rev)errors.push({line,reason:`orden invertido: pegá "${rev.home.n} ${aStr}-${hStr} ${rev.away.n}"`});
+      else errors.push({line,reason:`no hay partido entre ${home.n} y ${away.n}`});
+      return;
+    }
+    ok.push({matchId:match.id,h:parseInt(hStr),a:parseInt(aStr)});
+  });
+  return{ok,errors};
+}
+async function applyTextResults(){
+  if(!isSuperAdmin())return toast('❌ Solo super-admin');
+  const ta=document.getElementById('admin-text');
+  const text=ta?.value||'';
+  if(!text.trim())return toast('Pegá algunos resultados primero');
+  const{ok,errors}=parseResultsText(text);
+  if(ok.length){
+    const update={};
+    ok.forEach(({matchId,h,a})=>{update[matchId]={h,a};});
+    try{await db.collection('globalResults').doc('wc2026').set(update,{merge:true});}
+    catch(e){return toast('❌ '+e.message);}
+  }
+  const errEl=document.getElementById('admin-text-errors');
+  if(errors.length){
+    errEl.innerHTML=errors.map(e=>`<div style="font-size:.7rem;color:#c62828;padding:.2rem 0;background:#ffebee;border-radius:6px;padding:.3rem .5rem;margin-bottom:.2rem">⚠️ <code style="font-family:monospace">${e.line}</code> — ${e.reason}</div>`).join('');
+  }else{
+    errEl.innerHTML='';
+    if(ok.length)ta.value='';
+  }
+  toast(`✅ ${ok.length} cargado${ok.length===1?'':'s'}${errors.length?` · ⚠️ ${errors.length} con error`:''}`);
 }
 
 /* ═══════════════ SIMULATOR ═══════════════ */
@@ -1076,13 +1168,13 @@ function runSim(){
   const sim={...currentGroup.simResults||{}};
   let count=0;
   if(useAll||selPhases.has('groups')){
-    MATCHES.forEach(m=>{if(!currentGroup.results?.[m.id]){sim[m.id]=randScore();count++;}});
+    MATCHES.forEach(m=>{if(!globalResults?.[m.id]||globalResults[m.id].h===undefined){sim[m.id]=randScore();count++;}});
   }
   if(useAll){
-    if(!currentGroup.results?.champion)sim.champion=randTeam().n;
-    if(!currentGroup.results?.runnerUp)sim.runnerUp=randTeam().n;
-    if(!currentGroup.results?.thirdPlace)sim.thirdPlace=randTeam().n;
-    GK.forEach(g=>{if(!currentGroup.results?.['gw_'+g]){
+    if(!globalResults?.champion)sim.champion=randTeam().n;
+    if(!globalResults?.runnerUp)sim.runnerUp=randTeam().n;
+    if(!globalResults?.thirdPlace)sim.thirdPlace=randTeam().n;
+    GK.forEach(g=>{if(!globalResults?.['gw_'+g]){
       const ts=GROUPS[g].teams;sim['gw_'+g]=ts[Math.floor(Math.random()*ts.length)].n;}});
   }
   db.collection('grupos').doc(currentGroup.id).update({simResults:sim});
