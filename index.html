@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏆 Prode Mundial 2026</title>
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║          PRODE MUNDIAL 2026  ·  GUÍA DE CONFIGURACIÓN           ║
+╠══════════════════════════════════════════════════════════════════╣
+║  PASO 1 – Crear proyecto Firebase (gratis)                       ║
+║    → console.firebase.google.com → "Crear proyecto"              ║
+║                                                                  ║
+║  PASO 2 – Habilitar Google Auth                                  ║
+║    → Authentication → Método de acceso → Google → Habilitar     ║
+║    → Authorized domains → Agregar "localhost"                    ║
+║                                                                  ║
+║  PASO 3 – Crear base de datos Firestore                          ║
+║    → Firestore Database → Crear base de datos → Modo de prueba   ║
+║                                                                  ║
+║  PASO 4 – Copiar credenciales                                    ║
+║    → Configuración del proyecto → Tus apps → Web                 ║
+║    → Reemplazá los valores en FIREBASE_CONFIG abajo              ║
+║                                                                  ║
+║  PASO 5 – Reglas de Firestore                                    ║
+║    → Firestore → Reglas → Publicar estas reglas:                 ║
+║                                                                  ║
+║  rules_version = '2';                                            ║
+║  service cloud.firestore {                                       ║
+║    match /databases/{database}/documents {                       ║
+║      match /{document=**} {                                      ║
+║        allow read, write: if request.auth != null;               ║
+║      }                                                           ║
+║    }                                                             ║
+║  }                                                               ║
+║                                                                  ║
+║  PASO 6 – Correr localmente                                      ║
+║    cd carpeta-del-archivo                                        ║
+║    python3 -m http.server 3000                                   ║
+║    Abrir: http://localhost:3000/prode_mundial_2026.html          ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--p:#1a237e;--p2:#283593;--red:#c62828;--gold:#f9a825;--green:#2e7d32;
+  --bg:#f0f2f5;--muted:#757575;--border:#e0e0e0;--purple:#7b1fa2}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#212121;min-height:100vh}
+
+/* SCREENS */
+.screen{display:none}.screen.active{display:block}
+
+/* LOADING */
+#screen-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;background:linear-gradient(135deg,var(--p),var(--red))}
+.loader{width:48px;height:48px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .9s linear infinite;margin-bottom:1rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+#screen-loading p{color:rgba(255,255,255,.8);font-size:.9rem}
+
+/* LOGIN */
+#screen-login{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:2rem;background:linear-gradient(135deg,var(--p),var(--p2) 50%,var(--red))}
+.login-card{background:#fff;border-radius:24px;padding:2.5rem 2rem;text-align:center;
+  max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-card .trophy{font-size:3.5rem;margin-bottom:.75rem}
+.login-card h1{font-size:1.6rem;font-weight:900;color:var(--p);letter-spacing:1px;margin-bottom:.3rem}
+.login-card p{color:var(--muted);font-size:.85rem;margin-bottom:1.75rem;line-height:1.4}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:.75rem;
+  width:100%;padding:.85rem;border:2px solid var(--border);border-radius:14px;
+  background:#fff;cursor:pointer;font-size:.92rem;font-weight:700;transition:all .2s;color:#444}
+.google-btn:hover{border-color:var(--p);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.google-logo{width:20px;height:20px}
+
+/* DASHBOARD */
+#screen-dashboard .hdr{background:linear-gradient(135deg,var(--p),var(--p2) 50%,var(--red));
+  color:#fff;padding:.85rem 1rem;display:flex;align-items:center;gap:.75rem}
+.user-photo{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.4);object-fit:cover}
+.user-photo-placeholder{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.3);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;color:#fff}
+.hdr-name{flex:1;font-weight:700;font-size:.9rem}
+.hdr-signout{background:rgba(255,255,255,.15);border:none;color:#fff;padding:.35rem .65rem;
+  border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700}
+.dashboard-body{padding:1rem;max-width:600px;margin:0 auto}
+.group-card{background:#fff;border-radius:14px;padding:1rem;margin-bottom:.75rem;
+  box-shadow:0 2px 10px rgba(0,0,0,.07);display:flex;align-items:center;gap:.85rem;cursor:pointer;
+  transition:all .2s;border:2px solid transparent}
+.group-card:hover{border-color:var(--p);transform:translateY(-1px)}
+.group-icon{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--p),var(--red));
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
+.group-name{font-weight:800;font-size:.95rem;margin-bottom:2px}
+.group-code{font-size:.72rem;color:var(--muted);font-family:monospace;letter-spacing:.5px}
+.group-enter{background:var(--p);color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;
+  cursor:pointer;font-size:.8rem;font-weight:700;white-space:nowrap}
+.section-title{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:.65rem;margin-top:1.25rem}
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:1rem}
+.action-card{background:#fff;border-radius:14px;padding:1.1rem;text-align:center;cursor:pointer;
+  border:2px solid var(--border);transition:all .2s}
+.action-card:hover{border-color:var(--p);transform:translateY(-1px)}
+.action-card .icon{font-size:1.8rem;margin-bottom:.4rem}
+.action-card .label{font-size:.82rem;font-weight:800;color:var(--p)}
+.action-card .desc{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+/* MODAL INPUT */
+.mi-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;
+  display:flex;align-items:center;justify-content:center;padding:1rem;
+  opacity:0;pointer-events:none;transition:opacity .2s}
+.mi-overlay.open{opacity:1;pointer-events:all}
+.mi-box{background:#fff;border-radius:20px;padding:1.75rem;width:100%;max-width:380px;
+  transform:scale(.9);transition:transform .25s}
+.mi-overlay.open .mi-box{transform:scale(1)}
+.mi-title{font-size:1.05rem;font-weight:900;color:var(--p);margin-bottom:1rem;text-align:center}
+
+/* APP SCREEN */
+#screen-app .hdr{background:linear-gradient(135deg,var(--p),var(--p2) 50%,var(--red));
+  color:#fff;padding:.7rem 1rem;display:flex;align-items:center;gap:.6rem;
+  position:sticky;top:0;z-index:200}
+.hdr-back{background:rgba(255,255,255,.15);border:none;color:#fff;padding:.3rem .55rem;
+  border-radius:7px;cursor:pointer;font-size:.75rem;font-weight:700}
+.hdr-title{flex:1;font-weight:900;font-size:.88rem;letter-spacing:.3px}
+.hdr-code{background:rgba(255,255,255,.2);border:none;color:#fff;padding:.28rem .55rem;
+  border-radius:7px;font-size:.7rem;font-family:monospace;font-weight:800;cursor:pointer;
+  letter-spacing:.5px}
+.nav{display:flex;overflow-x:auto;background:#fff;border-bottom:2px solid var(--border);
+  scrollbar-width:none;position:sticky;top:46px;z-index:190}
+.nav::-webkit-scrollbar{display:none}
+.nb{flex:0 0 auto;padding:.62rem .88rem;border:none;background:none;cursor:pointer;
+  font-size:.74rem;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;
+  transition:all .2s;white-space:nowrap}
+.nb.active{color:var(--p);border-bottom-color:var(--p)}
+
+/* VIEWS */
+.view{display:none;padding:1rem;max-width:820px;margin:0 auto}.view.active{display:block}
+
+/* CARDS */
+.card{background:#fff;border-radius:14px;padding:1rem;margin-bottom:.85rem;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.ch{display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem;font-weight:800;
+  font-size:.82rem;color:var(--p);text-transform:uppercase;letter-spacing:.5px}
+
+/* MATCH ROW */
+.mr{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  gap:.35rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
+.mr:last-child{border-bottom:none}
+.tn{font-size:.8rem;font-weight:700}.tn.h{text-align:right}.tn.a{text-align:left}
+.sw{display:flex;flex-direction:column;align-items:center;gap:2px}
+.siw{display:flex;align-items:center;gap:3px}
+.si{width:33px;height:33px;border:2px solid var(--border);border-radius:8px;
+  text-align:center;font-size:.9rem;font-weight:800;background:var(--bg);
+  -moz-appearance:textfield;transition:border-color .2s}
+.si::-webkit-outer-spin-button,.si::-webkit-inner-spin-button{-webkit-appearance:none}
+.si:focus{outline:none;border-color:var(--p);background:#fff}
+.si.f{background:#e8eaf6;border-color:#9fa8da}
+.sdiv{font-weight:900;color:var(--muted)}
+.jl{font-size:.68rem;font-weight:800;color:var(--muted);padding:.45rem 0 .15rem;
+  text-transform:uppercase;letter-spacing:.5px}
+.ie{color:#2e7d32;font-weight:800;font-size:.7rem}
+.ir{color:#e65100;font-weight:800;font-size:.7rem}
+.iw{color:#b71c1c;font-size:.7rem}
+.rs{font-size:.67rem;color:var(--green);font-weight:800}
+
+/* BUTTONS */
+.btn{padding:.65rem 1.3rem;border:none;border-radius:10px;cursor:pointer;
+  font-size:.86rem;font-weight:800;transition:all .2s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.07)}
+.bp{background:var(--p);color:#fff}.bs{background:var(--green);color:#fff}
+.br{background:var(--red);color:#fff}.bpu{background:var(--purple);color:#fff}
+.bg{background:var(--gold);color:#333}.bbl{background:var(--border);color:#555}
+.bblock{width:100%;margin-top:.45rem;display:block;text-align:center}
+
+/* FORM */
+.fl{display:block;font-size:.78rem;font-weight:700;margin-bottom:.3rem;color:var(--muted)}
+.fi{width:100%;padding:.65rem;border:2px solid var(--border);border-radius:10px;
+  font-size:.88rem;transition:border-color .2s;background:#fff}
+.fi:focus{outline:none;border-color:var(--p)}
+select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
+
+/* TABS */
+.stabs{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.7rem}
+.st{padding:.3rem .7rem;border-radius:8px;border:none;background:var(--border);
+  cursor:pointer;font-size:.73rem;font-weight:800;transition:all .2s}
+.st.active{background:var(--p);color:#fff}
+
+/* LEADERBOARD */
+.lbr{display:flex;align-items:center;padding:.65rem .4rem;border-bottom:1px solid var(--border);
+  gap:.65rem;cursor:pointer;transition:background .15s;border-radius:8px}
+.lbr:last-child{border-bottom:none}
+.lbr:hover{background:#f5f5f5}
+.rc{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-weight:900;font-size:.8rem;flex-shrink:0;background:var(--bg)}
+.rk1{background:#FFD700;color:#333}.rk2{background:#C0C0C0;color:#333}.rk3{background:#CD7F32;color:#fff}
+.lbn{flex:1;font-weight:700;font-size:.87rem;display:flex;align-items:center;gap:.35rem}
+.ptb{background:var(--p);color:#fff;padding:.18rem .5rem;border-radius:10px;font-size:.78rem;font-weight:800}
+.ptb.sim{background:var(--purple)}
+.ptd{font-size:.65rem;color:var(--muted);margin-top:2px;text-align:right}
+.gbadge{background:var(--p);color:#fff;width:22px;height:22px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:900;flex-shrink:0}
+
+/* TAGS */
+.tag{font-size:.6rem;padding:.1rem .3rem;border-radius:5px;font-weight:800;white-space:nowrap}
+.tag-owner{background:var(--gold);color:#333}
+.tag-bot{background:#e1bee7;color:#4a148c}
+.tag-you{background:#e3f2fd;color:#1565c0}
+.tag-sim{background:var(--purple);color:#fff}
+
+/* PROGRESS */
+.pb{height:5px;background:var(--border);border-radius:5px;overflow:hidden;margin-top:.35rem}
+.pf{height:100%;background:var(--p);transition:width .5s}
+.sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;text-align:center;margin-bottom:.65rem}
+.sv{font-size:1.4rem;font-weight:900}.sl{font-size:.62rem;color:var(--muted);line-height:1.3}
+
+/* CHAMPION */
+.cc{background:linear-gradient(135deg,#f9a825,#e65100);color:#fff;
+  border-radius:14px;padding:1.4rem;text-align:center;margin-bottom:.85rem}
+.cc h3{font-size:1rem;font-weight:800;margin-bottom:.45rem}
+.cc select{background:rgba(255,255,255,.93);color:#333;border:none;font-weight:700;font-size:.87rem}
+
+/* PROFILE MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.mo.open{opacity:1;pointer-events:all}
+.mb{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:820px;
+  max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s ease;
+  padding:1.25rem 1rem 2rem}
+.mo.open .mb{transform:translateY(0)}
+.mh{width:40px;height:4px;background:var(--border);border-radius:4px;margin:0 auto .85rem}
+.avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.avatar-ph{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:1.2rem;font-weight:900;color:#fff;flex-shrink:0}
+.ppr{display:flex;align-items:center;justify-content:space-between;padding:.38rem 0;
+  border-bottom:1px solid var(--border);font-size:.78rem}
+.ppr:last-child{border-bottom:none}
+.ppr-m{color:var(--muted);flex:1}
+.ppr-s{font-weight:800;font-size:.83rem;padding:.14rem .38rem;border-radius:6px;background:var(--bg)}
+.ppr-i{width:48px;text-align:right;font-size:.68rem}
+
+/* SIM */
+.sim-card{background:linear-gradient(135deg,#f3e5f5,#ede7f6);border-radius:14px;
+  padding:1.1rem;margin-bottom:.85rem;border:2px solid #ce93d8}
+.sim-title{font-size:.88rem;font-weight:800;color:#6a1b9a;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.sim-banner{background:#f3e5f5;border:2px solid #ce93d8;border-radius:10px;
+  padding:.6rem .85rem;margin-bottom:.7rem;display:flex;align-items:center;gap:.5rem}
+.phase-grid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:.7rem}
+.ph-btn{padding:.7rem;border-radius:12px;border:2px solid var(--border);background:#fff;
+  cursor:pointer;text-align:center;font-size:.78rem;font-weight:700;transition:all .2s;color:#555}
+.ph-btn:hover{border-color:var(--purple);color:var(--purple)}
+.ph-btn.sel{background:var(--purple);color:#fff;border-color:var(--purple)}
+
+/* GW grid */
+.gw-g{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+
+/* COMPARE */
+.cpr{padding:.5rem 0;border-bottom:1px solid var(--border)}.cpr:last-child{border-bottom:none}
+.cpm{font-size:.78rem;font-weight:800;margin-bottom:.22rem}
+.cpreds{display:flex;flex-wrap:wrap;gap:.25rem .5rem}
+.cpi{font-size:.7rem;padding:.18rem .38rem;border-radius:6px}
+.cpe{background:#c8e6c9;color:#1b5e20}.cpr2{background:#fff3e0;color:#e65100}
+.cpw{background:#ffebee;color:#b71c1c}.cpu{background:#f5f5f5;color:var(--muted)}
+
+/* PROFILE GRID */
+.pg-item{display:flex;align-items:center;gap:.75rem;padding:.75rem;border-radius:12px;
+  cursor:pointer;border:2px solid var(--border);margin-bottom:.5rem;transition:all .2s;background:#fff}
+.pg-item:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(120px);
+  background:#333;color:#fff;padding:.6rem 1.3rem;border-radius:20px;font-size:.8rem;
+  font-weight:700;transition:transform .3s;z-index:1000;white-space:nowrap;max-width:90vw;
+  white-space:normal;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* EMPTY / HELPERS */
+.empty{text-align:center;padding:2rem 1rem;color:var(--muted)}
+.empty .ei{font-size:2.5rem;margin-bottom:.5rem}
+
+@media(max-width:480px){
+  .tn{font-size:.72rem}.si{width:29px;height:29px;font-size:.82rem}
+  .action-grid{grid-template-columns:1fr}.gw-g{grid-template-columns:1fr}.phase-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ LOADING ═══════════════════ -->
+<div id="screen-loading" class="screen active">
+  <div class="loader"></div>
+  <p>Cargando...</p>
+</div>
+
+<!-- ═══════════════════ LOGIN ═══════════════════ -->
+<div id="screen-login" class="screen">
+  <div class="login-card">
+    <div class="trophy">⚽</div>
+    <h1>PRODE MUNDIAL 2026</h1>
+    <p>Creá tu grupo, invitá a tus amigos con un código, y a predecir. USA · México · Canadá · 11 jun – 19 jul</p>
+    <button class="google-btn" onclick="signIn()">
+      <svg class="google-logo" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Ingresar con Google
+    </button>
+    <p style="font-size:.65rem;color:var(--muted);margin-top:1.2rem;margin-bottom:0;line-height:1.5">
+      Necesitás servir el archivo desde un servidor local.<br>
+      <code style="background:#f5f5f5;padding:.1rem .3rem;border-radius:4px">python3 -m http.server 3000</code>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+<div id="screen-dashboard" class="screen">
+  <div class="hdr">
+    <div id="dash-photo"></div>
+    <div class="hdr-name" id="dash-name">Cargando...</div>
+    <button class="hdr-signout" onclick="signOut()">Salir</button>
+  </div>
+  <div class="dashboard-body">
+    <div class="section-title">Mis grupos</div>
+    <div id="my-groups-list"><div class="empty"><div class="ei">🏟️</div><p>Todavía no estás en ningún grupo.</p></div></div>
+    <div class="section-title">Unirme a un grupo</div>
+    <div class="action-grid">
+      <div class="action-card" onclick="openCreate()">
+        <div class="icon">➕</div>
+        <div class="label">Crear grupo</div>
+        <div class="desc">Nuevo prode con código de invitación</div>
+      </div>
+      <div class="action-card" onclick="openJoin()">
+        <div class="icon">🔑</div>
+        <div class="label">Unirse</div>
+        <div class="desc">Tengo un código de 6 letras</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div id="screen-app" class="screen">
+  <div class="hdr">
+    <button class="hdr-back" onclick="leavGroup()">← Grupos</button>
+    <div class="hdr-title" id="app-title">...</div>
+    <button class="hdr-code" id="app-code" onclick="copyCode()" title="Tocá para copiar">📋 ...</button>
+  </div>
+  <nav class="nav" id="app-nav">
+    <button class="nb active" data-view="preds"    onclick="nav('preds')">📝 Predicciones</button>
+    <button class="nb"        data-view="bracket"  onclick="nav('bracket')">🏆 Campeón</button>
+    <button class="nb"        data-view="tabla"    onclick="nav('tabla')">🏅 Tabla</button>
+    <button class="nb"        data-view="perfiles" onclick="nav('perfiles')">👥 Perfiles</button>
+    <button class="nb"        data-view="admin"    id="admin-tab" style="display:none" onclick="nav('admin')">⚙️ Admin</button>
+  </nav>
+
+  <div class="view active" id="view-preds">
+    <div class="stabs" id="gtabs"></div>
+    <div id="preds-c"></div>
+  </div>
+  <div class="view" id="view-bracket">
+    <div id="bracket-c"></div>
+  </div>
+  <div class="view" id="view-tabla">
+    <div id="sim-banner"></div>
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem">
+      <div style="flex:1;font-weight:800;font-size:.88rem;color:var(--p)">🏅 Tabla de posiciones</div>
+      <button id="sim-toggle" class="btn bbl" style="padding:.3rem .65rem;font-size:.7rem" onclick="toggleSim()">🔬 Simulación</button>
+    </div>
+    <div class="card" style="padding:.5rem"><div id="tabla-c"></div></div>
+    <div class="card"><div class="ch">🔍 Comparar</div><div id="compare-c"></div></div>
+  </div>
+  <div class="view" id="view-perfiles">
+    <div class="card"><div class="ch">👥 Jugadores del grupo</div><div id="perfiles-c"></div></div>
+  </div>
+  <div class="view" id="view-admin">
+    <!-- Simulator -->
+    <div class="sim-card">
+      <div class="sim-title">🔬 Simulador del torneo</div>
+      <p style="font-size:.77rem;color:#6a1b9a;margin-bottom:.75rem">Generá resultados hipotéticos. No sobreescribe los resultados reales.</p>
+      <div class="phase-grid">
+        <button class="ph-btn sel" data-phase="groups" onclick="togglePhase('groups')">⚽ Fase de grupos<br><span style="font-size:.68rem;opacity:.7">72 partidos</span></button>
+        <button class="ph-btn" data-phase="all" onclick="togglePhase('all')">🏆 Torneo completo<br><span style="font-size:.68rem;opacity:.7">Todas las fases</span></button>
+      </div>
+      <button class="btn bpu bblock" onclick="runSim()">🎲 Simular</button>
+      <button class="btn bblock" onclick="clearSim()" style="background:#f3e5f5;color:#6a1b9a;border:2px solid #ce93d8;margin-top:.4rem">🧹 Limpiar simulación</button>
+      <div style="margin-top:.85rem;border-top:1px solid #ce93d8;padding-top:.75rem">
+        <div style="font-size:.8rem;font-weight:800;color:#6a1b9a;margin-bottom:.45rem">🤖 Jugadores bot</div>
+        <p style="font-size:.74rem;color:#7b1fa2;margin-bottom:.5rem">Agregá bots con predicciones aleatorias para probar el flujo.</p>
+        <button class="btn bpu bblock" style="font-size:.8rem" onclick="addBots()">🤖 Agregar 5 bots</button>
+        <button class="btn bblock" onclick="removeBots()" style="background:#f3e5f5;color:#6a1b9a;border:2px solid #ce93d8;margin-top:.4rem;font-size:.8rem">🗑️ Eliminar todos los bots</button>
+      </div>
+    </div>
+    <!-- Results -->
+    <div class="card">
+      <div class="ch">⚽ Resultados reales</div>
+      <div class="stabs" id="admin-gtabs"></div>
+      <div id="admin-c"></div>
+    </div>
+    <div class="card"><div class="ch">🏆 Resultados especiales</div><div id="admin-special"></div></div>
+    <div class="card">
+      <div class="ch" style="color:var(--red)">⚠️ Zona peligrosa</div>
+      <button class="btn br bblock" onclick="resetResults()">🗑️ Borrar todos los resultados</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INPUT (crear/unirse) -->
+<div class="mi-overlay" id="mi-overlay" onclick="if(event.target===this)closeMI()">
+  <div class="mi-box">
+    <div id="mi-content"></div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="mo" id="mo" onclick="if(event.target===this)closeMO()">
+  <div class="mb"><div class="mh"></div><div id="mo-content"></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════ FIREBASE CONFIG ═══════════════ */
+/* ⚠️  REEMPLAZÁ ESTOS VALORES CON LOS DE TU PROYECTO  ⚠️  */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyD8d-zfjPG5xQ-YYAUkbJQM6j4BuDCB8jI",
+  authDomain:        "prode-mundial-5e21f.firebaseapp.com",
+  projectId:         "prode-mundial-5e21f",
+  storageBucket:     "prode-mundial-5e21f.firebasestorage.app",
+  messagingSenderId: "247629938986",
+  appId:             "1:247629938986:web:7c0d54db7d1d636024de53",
+  measurementId:     "G-4TN9B951KG"
+};
+/* ════════════════════════════════════════════════ */
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+/* ═══════════════ WORLD CUP DATA ═══════════════ */
+const GROUPS = {
+  A:{teams:[{n:'México',f:'🇲🇽'},{n:'Sudáfrica',f:'🇿🇦'},{n:'Corea del Sur',f:'🇰🇷'},{n:'Rep. Checa',f:'🇨🇿'}]},
+  B:{teams:[{n:'Canadá',f:'🇨🇦'},{n:'Suiza',f:'🇨🇭'},{n:'Qatar',f:'🇶🇦'},{n:'Bosnia-Herz.',f:'🇧🇦'}]},
+  C:{teams:[{n:'Brasil',f:'🇧🇷'},{n:'Marruecos',f:'🇲🇦'},{n:'Haití',f:'🇭🇹'},{n:'Escocia',f:'🏴󠁧󠁢󠁳󠁣󠁴󠁿'}]},
+  D:{teams:[{n:'EE.UU.',f:'🇺🇸'},{n:'Paraguay',f:'🇵🇾'},{n:'Australia',f:'🇦🇺'},{n:'Turquía',f:'🇹🇷'}]},
+  E:{teams:[{n:'Alemania',f:'🇩🇪'},{n:'Curazao',f:'🇨🇼'},{n:'Costa de Marfil',f:'🇨🇮'},{n:'Ecuador',f:'🇪🇨'}]},
+  F:{teams:[{n:'Países Bajos',f:'🇳🇱'},{n:'Japón',f:'🇯🇵'},{n:'Túnez',f:'🇹🇳'},{n:'Suecia',f:'🇸🇪'}]},
+  G:{teams:[{n:'Bélgica',f:'🇧🇪'},{n:'Egipto',f:'🇪🇬'},{n:'Irán',f:'🇮🇷'},{n:'Nueva Zelanda',f:'🇳🇿'}]},
+  H:{teams:[{n:'España',f:'🇪🇸'},{n:'Cabo Verde',f:'🇨🇻'},{n:'Arabia Saudita',f:'🇸🇦'},{n:'Uruguay',f:'🇺🇾'}]},
+  I:{teams:[{n:'Francia',f:'🇫🇷'},{n:'Senegal',f:'🇸🇳'},{n:'Noruega',f:'🇳🇴'},{n:'Irak',f:'🇮🇶'}]},
+  J:{teams:[{n:'Argentina',f:'🇦🇷'},{n:'Argelia',f:'🇩🇿'},{n:'Austria',f:'🇦🇹'},{n:'Jordania',f:'🇯🇴'}]},
+  K:{teams:[{n:'Portugal',f:'🇵🇹'},{n:'Uzbekistán',f:'🇺🇿'},{n:'Colombia',f:'🇨🇴'},{n:'Congo DR',f:'🇨🇩'}]},
+  L:{teams:[{n:'Inglaterra',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Croacia',f:'🇭🇷'},{n:'Ghana',f:'🇬🇭'},{n:'Panamá',f:'🇵🇦'}]}
+};
+const PAIR=[[0,1],[2,3],[0,2],[1,3],[1,2],[0,3]];
+const JORN=[1,1,2,2,3,3];
+const GK=Object.keys(GROUPS);
+const ALL_TEAMS=Object.values(GROUPS).flatMap(g=>g.teams);
+const COLORS=['#1a237e','#c62828','#2e7d32','#e65100','#6a1b9a','#00695c','#1565c0','#ad1457','#37474f','#4e342e'];
+const SSCORES=[[0,0,3],[1,0,9],[0,1,9],[1,1,8],[2,0,7],[0,2,7],[2,1,8],[1,2,8],[2,2,4],[3,0,4],[0,3,4],[3,1,5],[1,3,5],[3,2,3],[2,3,3],[4,0,2],[0,4,2]];
+const STOT=SSCORES.reduce((s,[,,w])=>s+w,0);
+const BOT_NAMES=['🤖 RoboPredor','🤖 TermiGol','🤖 AlgoritmoFC','🤖 MatePredicts','🤖 SkynetXI'];
+
+function genMatches(){
+  const m=[];
+  for(const[g,d] of Object.entries(GROUPS))
+    PAIR.forEach(([i,j],x)=>m.push({id:`${g}_${i}_${j}`,group:g,jornada:JORN[x],home:d.teams[i],away:d.teams[j]}));
+  return m;
+}
+const MATCHES=genMatches();
+
+function randScore(){
+  let r=Math.random()*STOT,c=0;
+  for(const[h,a,w] of SSCORES){c+=w;if(r<c)return{h,a};}
+  return{h:1,a:0};
+}
+function randTeam(){return ALL_TEAMS[Math.floor(Math.random()*ALL_TEAMS.length)];}
+function avatarColor(name){return COLORS[Math.abs([...name].reduce((a,c)=>a+c.charCodeAt(0),0))%COLORS.length];}
+function genCode(){return Math.random().toString(36).substring(2,8).toUpperCase();}
+function esc(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+
+/* ═══════════════ STATE ═══════════════ */
+let currentUser = null;
+let currentGroup = null;   // { id, name, code, ownerUid, results, simResults }
+let groupMembers = {};     // { uid: { displayName, photoURL, predictions, isBot } }
+let unsubGroup   = null;
+let unsubMembers = null;
+let curGroup     = 'A';
+let selPhases    = new Set(['groups']);
+let simMode      = false;
+let pendingWrites = {};    // debounce map
+
+/* ═══════════════ AUTH ═══════════════ */
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    showScreen('dashboard');
+    loadMyGroups();
+  } else {
+    currentUser = null;
+    showScreen('login');
+  }
+});
+
+function signIn(){
+  const prov = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(prov).catch(e => toast('❌ ' + e.message));
+}
+function signOut(){
+  detach();
+  auth.signOut();
+}
+
+/* ═══════════════ SCREENS ═══════════════ */
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+  const el=document.getElementById('screen-'+name);
+  el.style.display='block';el.classList.add('active');
+}
+
+/* ═══════════════ DASHBOARD ═══════════════ */
+async function loadMyGroups(){
+  const u=currentUser;
+  // Render user info
+  const photo=u.photoURL;
+  const ph=document.getElementById('dash-photo');
+  ph.innerHTML=photo?`<img class="user-photo" src="${photo}" alt="">`:`<div class="user-photo-placeholder">${u.displayName?.[0]?.toUpperCase()||'?'}</div>`;
+  document.getElementById('dash-name').textContent=`Hola, ${u.displayName?.split(' ')[0] || 'jugador'}! 👋`;
+
+  const snap=await db.collection('users').doc(u.uid).collection('groups').get();
+  const el=document.getElementById('my-groups-list');
+  if(snap.empty){el.innerHTML='<div class="empty"><div class="ei">🏟️</div><p>Todavía no estás en ningún grupo.</p></div>';return;}
+  el.innerHTML=snap.docs.map(d=>{
+    const g=d.data();
+    return`<div class="group-card" onclick="enterGroup('${d.id}')">
+      <div class="group-icon">⚽</div>
+      <div style="flex:1">
+        <div class="group-name">${g.name}</div>
+        <div class="group-code">CÓDIGO: ${g.code}</div>
+      </div>
+      <button class="group-enter" onclick="event.stopPropagation();enterGroup('${d.id}')">Entrar →</button>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════ CREATE / JOIN MODALS ═══════════════ */
+function openCreate(){
+  document.getElementById('mi-content').innerHTML=`
+    <div class="mi-title">➕ Crear nuevo grupo</div>
+    <div class="fg"><label class="fl">Nombre del grupo</label>
+      <input class="fi" id="mi-gname" placeholder="Ej: Los Pibes del Barrio" maxlength="40"
+             onkeydown="if(event.key==='Enter')doCreate()">
+    </div>
+    <button class="btn bp bblock" onclick="doCreate()">Crear grupo</button>
+    <button class="btn bbl bblock" onclick="closeMI()">Cancelar</button>
+  `;
+  openMI();
+  setTimeout(()=>document.getElementById('mi-gname')?.focus(),300);
+}
+
+function openJoin(){
+  document.getElementById('mi-content').innerHTML=`
+    <div class="mi-title">🔑 Unirse con código</div>
+    <div class="fg"><label class="fl">Código de invitación (6 caracteres)</label>
+      <input class="fi" id="mi-code" placeholder="ABC123" maxlength="6"
+             style="text-transform:uppercase;font-family:monospace;font-size:1.2rem;letter-spacing:3px;text-align:center"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')doJoin()">
+    </div>
+    <button class="btn bp bblock" onclick="doJoin()">Unirse</button>
+    <button class="btn bbl bblock" onclick="closeMI()">Cancelar</button>
+  `;
+  openMI();
+  setTimeout(()=>document.getElementById('mi-code')?.focus(),300);
+}
+
+async function doCreate(){
+  const name=document.getElementById('mi-gname')?.value.trim();
+  if(!name)return toast('Escribí un nombre');
+  closeMI();toast('Creando grupo...');
+  const code=genCode();
+  const groupRef=db.collection('grupos').doc();
+  const batch=db.batch();
+  batch.set(groupRef,{name,ownerUid:currentUser.uid,ownerName:currentUser.displayName,code,
+    results:{},simResults:{},createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  batch.set(db.collection('codes').doc(code),{groupId:groupRef.id});
+  batch.set(groupRef.collection('members').doc(currentUser.uid),{
+    displayName:currentUser.displayName,photoURL:currentUser.photoURL||'',
+    joinedAt:firebase.firestore.FieldValue.serverTimestamp(),predictions:{},isBot:false});
+  batch.set(db.collection('users').doc(currentUser.uid).collection('groups').doc(groupRef.id),
+    {name,code,joinedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  await batch.commit();
+  toast(`✅ Grupo creado · Código: ${code}`);
+  loadMyGroups();
+  enterGroup(groupRef.id);
+}
+
+async function doJoin(){
+  const code=document.getElementById('mi-code')?.value.trim().toUpperCase();
+  if(code.length!==6)return toast('El código debe tener 6 caracteres');
+  closeMI();toast('Buscando grupo...');
+  const codeDoc=await db.collection('codes').doc(code).get();
+  if(!codeDoc.exists)return toast('❌ Código inválido');
+  const groupId=codeDoc.data().groupId;
+  const groupDoc=await db.collection('grupos').doc(groupId).get();
+  if(!groupDoc.exists)return toast('❌ Grupo no encontrado');
+  const gdata=groupDoc.data();
+  const batch=db.batch();
+  batch.set(groupDoc.ref.collection('members').doc(currentUser.uid),{
+    displayName:currentUser.displayName,photoURL:currentUser.photoURL||'',
+    joinedAt:firebase.firestore.FieldValue.serverTimestamp(),predictions:{},isBot:false},{merge:true});
+  batch.set(db.collection('users').doc(currentUser.uid).collection('groups').doc(groupId),
+    {name:gdata.name,code:gdata.code,joinedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  await batch.commit();
+  toast(`✅ Te uniste a "${gdata.name}"`);
+  loadMyGroups();
+  enterGroup(groupId);
+}
+
+function openMI(){document.getElementById('mi-overlay').classList.add('open');}
+function closeMI(){document.getElementById('mi-overlay').classList.remove('open');}
+
+/* ═══════════════ ENTER / LEAVE GROUP ═══════════════ */
+function enterGroup(groupId){
+  detach();simMode=false;curGroup='A';
+  showScreen('app');nav('preds');
+  // Listener: group doc (results, simResults)
+  unsubGroup=db.collection('grupos').doc(groupId).onSnapshot(doc=>{
+    if(!doc.exists)return;
+    currentGroup={id:groupId,...doc.data()};
+    document.getElementById('app-title').textContent=currentGroup.name;
+    document.getElementById('app-code').textContent=`📋 ${currentGroup.code}`;
+    // Show admin tab only for owner
+    document.getElementById('admin-tab').style.display=
+      currentUser.uid===currentGroup.ownerUid?'block':'none';
+    renderCurrentView();
+  });
+  // Listener: members
+  unsubMembers=db.collection('grupos').doc(groupId).collection('members').onSnapshot(snap=>{
+    groupMembers={};
+    snap.forEach(d=>{groupMembers[d.id]=d.data();});
+    renderCurrentView();
+  });
+}
+
+function leavGroup(){
+  detach();
+  currentGroup=null;groupMembers={};
+  showScreen('dashboard');
+  loadMyGroups();
+}
+
+function detach(){
+  if(unsubGroup){unsubGroup();unsubGroup=null;}
+  if(unsubMembers){unsubMembers();unsubMembers=null;}
+  Object.values(pendingWrites).forEach(clearTimeout);
+  pendingWrites={};
+}
+
+function copyCode(){
+  if(!currentGroup)return;
+  navigator.clipboard?.writeText(currentGroup.code);
+  toast(`📋 Código copiado: ${currentGroup.code} · Mandáselo a tus amigos!`);
+}
+
+/* ═══════════════ NAV ═══════════════ */
+let curView='preds';
+function nav(v){
+  curView=v;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelector(`[data-view="${v}"]`)?.classList.add('active');
+  renderCurrentView();
+}
+function renderCurrentView(){
+  if(!currentGroup)return;
+  ({preds:renderPreds,bracket:renderBracket,tabla:renderTabla,
+    perfiles:renderPerfiles,admin:renderAdmin})[curView]?.();
+}
+
+/* ═══════════════ MY PREDICTIONS ═══════════════ */
+function myPreds(){return groupMembers[currentUser?.uid]?.predictions||{};}
+
+/* ═══════════════ PREDICCIONES ═══════════════ */
+function renderGTabs(id,fn){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="${fn}('${g}')">G.${g}</button>`).join('');
+}
+
+function renderPreds(){
+  renderGTabs('gtabs','setGroup');
+  const el=document.getElementById('preds-c');
+  if(!currentUser){el.innerHTML='';return;}
+  const pred=myPreds();
+  const gm=MATCHES.filter(m=>m.group===curGroup);
+  let html='<div class="card">';
+  html+=`<div class="ch"><span class="gbadge">${curGroup}</span>${GROUPS[curGroup].teams.map(t=>t.f+' '+t.n).join(' · ')}</div>`;
+  [1,2,3].forEach(j=>{
+    html+=`<div class="jl">Jornada ${j}</div>`;
+    gm.filter(m=>m.jornada===j).forEach(m=>{
+      const p=pred[m.id]||{},r=currentGroup?.results?.[m.id];
+      let ind='';
+      if(r!==undefined&&p.h!==undefined&&p.h!==''){
+        const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
+        ind=(+p.h===r.h&&+p.a===r.a)?'<span class="ie">★★★</span>':po===ro?'<span class="ir">★</span>':'<span class="iw">✗</span>';
+      }
+      const rD=r!==undefined?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
+      const hv=p.h!==undefined&&p.h!==''?p.h:'',av=p.a!==undefined&&p.a!==''?p.a:'';
+      html+=`<div class="mr">
+        <div class="tn h">${m.home.f} ${m.home.n}</div>
+        <div class="sw">
+          <div class="siw">
+            <input class="si${hv!==''?' f':''}" type="number" min="0" max="20" value="${hv}" placeholder="-"
+              onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
+            <span class="sdiv">:</span>
+            <input class="si${av!==''?' f':''}" type="number" min="0" max="20" value="${av}" placeholder="-"
+              onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
+          </div>
+          <div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div>
+        </div>
+        <div class="tn a">${m.away.n} ${m.away.f}</div>
+      </div>`;
+    });
+  });
+  html+='</div><div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">★★★ Exacto = 3 pts · ★ Resultado = 1 pt</div>';
+  el.innerHTML=html;
+}
+function setGroup(g){curGroup=g;renderPreds();renderGTabs('gtabs','setGroup');}
+
+function savePred(matchId,side,val){
+  if(!currentUser||!currentGroup)return;
+  const uid=currentUser.uid;
+  // Update local immediately
+  if(!groupMembers[uid])groupMembers[uid]={predictions:{}};
+  if(!groupMembers[uid].predictions)groupMembers[uid].predictions={};
+  if(!groupMembers[uid].predictions[matchId])groupMembers[uid].predictions[matchId]={};
+  groupMembers[uid].predictions[matchId][side]=val===''?'':parseInt(val);
+  // Debounce Firestore write
+  const key=`${matchId}_${side}`;
+  clearTimeout(pendingWrites[key]);
+  pendingWrites[key]=setTimeout(()=>{
+    db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
+      .update({[`predictions.${matchId}.${side}`]:val===''?'':parseInt(val)})
+      .catch(()=>{});
+    delete pendingWrites[key];
+  },900);
+}
+
+/* ═══════════════ BRACKET ═══════════════ */
+function renderBracket(){
+  const el=document.getElementById('bracket-c');
+  if(!currentUser)return;
+  const pred=myPreds();
+  const tOpts=sel=>ALL_TEAMS.map(t=>`<option value="${t.n}"${t.n===sel?' selected':''}>${t.f} ${t.n}</option>`).join('');
+  const gwH=GK.map(g=>{
+    const ts=GROUPS[g].teams,sel=pred['gw_'+g]||'';
+    return`<div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem">
+      <span class="gbadge">${g}</span>
+      <select class="fi" style="flex:1" onchange="saveSpec('gw_${g}',this.value)">
+        <option value="">– Ganador –</option>${ts.map(t=>`<option value="${t.n}"${t.n===sel?' selected':''}>${t.f} ${t.n}</option>`).join('')}
+      </select></div>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="cc"><div style="font-size:2.2rem;margin-bottom:.3rem">🏆</div>
+      <h3>¿Quién levanta la Copa del Mundo?</h3>
+      <select class="fi" style="margin-top:.7rem" onchange="saveSpec('champion',this.value)">
+        <option value="">– Elegí el campeón –</option>${tOpts(pred.champion||'')}
+      </select>
+      ${currentGroup?.results?.champion?`<div style="margin-top:.4rem;font-size:.78rem;opacity:.9">Campeón real: ${ALL_TEAMS.find(t=>t.n===currentGroup.results.champion)?.f||''} ${currentGroup.results.champion}</div>`:''}
+    </div>
+    <div class="card"><div class="ch">🥈 Subcampeón <span style="font-size:.68rem;color:var(--muted)">(+3 pts)</span></div>
+      <select class="fi" onchange="saveSpec('runnerUp',this.value)"><option value="">–</option>${tOpts(pred.runnerUp||'')}</select></div>
+    <div class="card"><div class="ch">🥉 Tercer lugar <span style="font-size:.68rem;color:var(--muted)">(+2 pts)</span></div>
+      <select class="fi" onchange="saveSpec('thirdPlace',this.value)"><option value="">–</option>${tOpts(pred.thirdPlace||'')}</select></div>
+    <div class="card"><div class="ch">🏅 Ganadores de grupo <span style="font-size:.68rem;color:var(--muted)">(+2 pts c/u)</span></div>
+      <div class="gw-g">${gwH}</div></div>
+    <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">Campeón 5 pts · Sub 3 pts · 3ro 2 pts · Ganador grupo 2 pts</div>
+  `;
+}
+
+function saveSpec(key,val){
+  if(!currentUser||!currentGroup)return;
+  const uid=currentUser.uid;
+  if(!groupMembers[uid])groupMembers[uid]={predictions:{}};
+  if(!groupMembers[uid].predictions)groupMembers[uid].predictions={};
+  groupMembers[uid].predictions[key]=val;
+  db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
+    .update({[`predictions.${key}`]:val}).catch(()=>{});
+  toast('💾 Guardado');
+}
+
+/* ═══════════════ SCORING ═══════════════ */
+function score(uid,useSim){
+  const pred=groupMembers[uid]?.predictions||{};
+  const res=useSim?mergedRes():currentGroup?.results||{};
+  let exact=0,r=0,bonus=0;
+  MATCHES.forEach(m=>{
+    const p=pred[m.id],rv=res[m.id];
+    if(!rv||!p||p.h===''||p.h===undefined)return;
+    if(+p.h===rv.h&&+p.a===rv.a)exact++;
+    else if(Math.sign(p.h-p.a)===Math.sign(rv.h-rv.a))r++;
+  });
+  if(res.champion&&pred.champion===res.champion)bonus+=5;
+  if(res.runnerUp&&pred.runnerUp===res.runnerUp)bonus+=3;
+  if(res.thirdPlace&&pred.thirdPlace===res.thirdPlace)bonus+=2;
+  GK.forEach(g=>{if(res['gw_'+g]&&pred['gw_'+g]===res['gw_'+g])bonus+=2;});
+  return{exact,r,bonus,total:exact*3+r+bonus};
+}
+function mergedRes(){return Object.assign({},currentGroup?.simResults||{},currentGroup?.results||{});}
+
+/* ═══════════════ TABLA ═══════════════ */
+function toggleSim(){
+  simMode=!simMode;
+  const btn=document.getElementById('sim-toggle');
+  if(btn){btn.textContent=simMode?'📊 Ver real':'🔬 Simulación';
+    btn.style.background=simMode?'var(--purple)':'var(--border)';
+    btn.style.color=simMode?'#fff':'#555';}
+  renderTabla();
+}
+
+function renderTabla(){
+  const hasSim=Object.keys(currentGroup?.simResults||{}).length>0;
+  const banner=document.getElementById('sim-banner');
+  if(banner)banner.innerHTML=hasSim?`<div class="sim-banner">
+    <span class="tag tag-sim">SIM</span>
+    <span style="font-size:.8rem;font-weight:700;color:#6a1b9a;flex:1">${simMode?'Tabla simulada activa':'Hay datos simulados disponibles'}</span>
+    <button onclick="clearSim()" style="border:none;background:none;cursor:pointer;font-size:.8rem;color:#6a1b9a;font-weight:700">Limpiar ✕</button>
+  </div>`:'';
+
+  const uids=Object.keys(groupMembers);
+  if(!uids.length){document.getElementById('tabla-c').innerHTML='<p style="color:var(--muted);font-size:.83rem;padding:.5rem">Sin jugadores aún.</p>';return;}
+  const scores=uids.map(uid=>({uid,...score(uid,simMode),
+    name:groupMembers[uid].displayName,
+    photo:groupMembers[uid].photoURL,
+    isBot:groupMembers[uid].isBot}))
+    .sort((a,b)=>b.total-a.total);
+  const rclr=['rk1','rk2','rk3'];
+  document.getElementById('tabla-c').innerHTML=scores.map((s,i)=>{
+    const isMe=s.uid===currentUser?.uid&&!s.isBot;
+    const isOwner=s.uid===currentGroup?.ownerUid&&!s.isBot;
+    const photo=s.photo&&!s.isBot?`<img class="avatar" style="width:26px;height:26px" src="${s.photo}" alt="">`
+      :`<div class="avatar-ph" style="width:26px;height:26px;font-size:.8rem;background:${avatarColor(s.name)}">${s.isBot?'🤖':s.name[0].toUpperCase()}</div>`;
+    return`<div class="lbr" onclick="showProfile('${esc(s.uid)}')">
+      <div class="rc ${rclr[i]||''}">${i+1}</div>
+      ${photo}
+      <div class="lbn">${s.name}
+        ${isOwner?'<span class="tag tag-owner">👑</span>':''}
+        ${s.isBot?'<span class="tag tag-bot">BOT</span>':''}
+        ${isMe?'<span class="tag tag-you">vos</span>':''}
+      </div>
+      <div><div class="ptb${simMode?' sim':''}">${s.total} pts</div>
+        <div class="ptd">${s.exact}×exa · ${s.r}×res · ${s.bonus} bon</div></div>
+    </div>`;
+  }).join('');
+
+  const results=simMode?mergedRes():currentGroup?.results||{};
+  const done=MATCHES.filter(m=>results[m.id]!==undefined);
+  if(!done.length){document.getElementById('compare-c').innerHTML='<p style="color:var(--muted);font-size:.83rem">Sin resultados aún.</p>';return;}
+  const recent=done.slice(-6).reverse();
+  document.getElementById('compare-c').innerHTML=recent.map(m=>{
+    const r=results[m.id];
+    const isSim=!currentGroup?.results?.[m.id]&&currentGroup?.simResults?.[m.id];
+    const preds=Object.entries(groupMembers).map(([uid,mem])=>{
+      const pd=mem.predictions?.[m.id]||{};
+      if(pd.h===undefined||pd.h==='')return`<span class="cpi cpu">${mem.displayName.split(' ')[0]}: ?</span>`;
+      let cls='cpw';
+      if(+pd.h===r.h&&+pd.a===r.a)cls='cpe';
+      else if(Math.sign(pd.h-pd.a)===Math.sign(r.h-r.a))cls='cpr2';
+      return`<span class="cpi ${cls}">${mem.displayName.split(' ')[0]}: ${pd.h}-${pd.a}</span>`;
+    }).join('');
+    return`<div class="cpr"><div class="cpm">${m.home.f} ${m.home.n} <b>${r.h}-${r.a}</b> ${m.away.n} ${m.away.f}
+      <span style="font-size:.63rem;color:var(--muted)"> G.${m.group}</span>
+      ${isSim?'<span class="tag tag-sim" style="margin-left:.3rem">SIM</span>':''}</div>
+      <div class="cpreds">${preds}</div></div>`;
+  }).join('');
+}
+
+/* ═══════════════ PERFILES ═══════════════ */
+function renderPerfiles(){
+  const el=document.getElementById('perfiles-c');
+  const uids=Object.keys(groupMembers);
+  if(!uids.length){el.innerHTML='<p style="color:var(--muted);font-size:.83rem">Sin jugadores aún.</p>';return;}
+  el.innerHTML=uids.map(uid=>{
+    const m=groupMembers[uid],sc=score(uid);
+    const isBot=m.isBot,isOwner=uid===currentGroup?.ownerUid&&!isBot,isMe=uid===currentUser?.uid&&!isBot;
+    const pred=m.predictions||{};
+    const champ=pred.champion?`${ALL_TEAMS.find(t=>t.n===pred.champion)?.f||''}  ${pred.champion}`:'Sin elegir';
+    const filled=MATCHES.filter(mm=>{const p=pred[mm.id];return p&&p.h!==undefined&&p.h!==''}).length;
+    const color=avatarColor(m.displayName);
+    const photo=m.photoURL&&!isBot?`<img class="avatar" src="${m.photoURL}" alt="">`
+      :`<div class="avatar-ph" style="background:${color}">${isBot?'🤖':m.displayName[0].toUpperCase()}</div>`;
+    return`<div class="pg-item" onclick="showProfile('${esc(uid)}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">
+      ${photo}
+      <div style="flex:1">
+        <div style="font-weight:800;font-size:.88rem;display:flex;align-items:center;gap:.3rem">
+          ${m.displayName}
+          ${isOwner?'<span class="tag tag-owner">👑</span>':''}
+          ${isBot?'<span class="tag tag-bot">BOT</span>':''}
+          ${isMe?'<span class="tag tag-you">vos</span>':''}
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">🏆 ${champ} · ${filled}/${MATCHES.length} pred.</div>
+      </div>
+      <div style="text-align:right"><div style="font-size:1.3rem;font-weight:900;color:${color}">${sc.total}</div><div style="font-size:.65rem;color:var(--muted)">puntos</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════ PROFILE MODAL ═══════════════ */
+function showProfile(uid){
+  const mem=groupMembers[uid];if(!mem)return;
+  const sc=score(uid);
+  const pred=mem.predictions||{};
+  const isBot=mem.isBot,isOwner=uid===currentGroup?.ownerUid&&!isBot,isMe=uid===currentUser?.uid&&!isBot;
+  const color=avatarColor(mem.displayName);
+  const photo=mem.photoURL&&!isBot?`<img class="avatar" style="width:48px;height:48px" src="${mem.photoURL}" alt="">`
+    :`<div class="avatar-ph" style="width:48px;height:48px;font-size:1.3rem;background:${color}">${isBot?'🤖':mem.displayName[0].toUpperCase()}</div>`;
+
+  const groupsHTML=GK.map(g=>{
+    const gm=MATCHES.filter(m=>m.group===g);
+    const gwPred=pred['gw_'+g];
+    const gwTeam=gwPred?GROUPS[g].teams.find(t=>t.n===gwPred):null;
+    const rows=gm.map(m=>{
+      const p=pred[m.id]||{},r=currentGroup?.results?.[m.id];
+      let ind='',cls='';
+      if(r!==undefined&&p.h!==undefined&&p.h!==''){
+        const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
+        if(+p.h===r.h&&+p.a===r.a){ind='★★★';cls='ie';}
+        else if(po===ro){ind='★';cls='ir';}
+        else{ind='✗';cls='iw';}
+      }
+      const hasP=p.h!==undefined&&p.h!=='';
+      return`<div class="ppr">
+        <span class="ppr-m">${m.home.f} ${m.home.n} vs ${m.away.n} ${m.away.f}</span>
+        <span class="ppr-s">${hasP?`${p.h}-${p.a}`:'?'}</span>
+        <span class="ppr-i"><span class="${cls}">${ind}</span>${r!==undefined?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
+      </div>`;
+    }).join('');
+    return`<div style="margin-bottom:.7rem">
+      <div style="font-size:.75rem;font-weight:800;color:var(--p);margin-bottom:.3rem;display:flex;align-items:center;gap:.35rem">
+        <span class="gbadge">${g}</span>${GROUPS[g].teams.map(t=>t.f).join('')}
+        ${gwTeam?`<span style="margin-left:auto;font-size:.7rem;color:var(--muted)">Gana: ${gwTeam.f} ${gwTeam.n}</span>`:''}
+      </div>${rows}</div>`;
+  }).join('');
+
+  document.getElementById('mo-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem">
+      ${photo}
+      <div style="flex:1">
+        <div style="font-size:1.05rem;font-weight:900;display:flex;align-items:center;gap:.3rem;flex-wrap:wrap">
+          ${mem.displayName}
+          ${isOwner?'<span class="tag tag-owner">👑 Dueño</span>':''}
+          ${isBot?'<span class="tag tag-bot">BOT</span>':''}
+          ${isMe?'<span class="tag tag-you">vos</span>':''}
+        </div>
+        <div style="font-size:.73rem;color:var(--muted);margin-top:2px">${sc.total} pts · ${sc.exact} exactos · ${sc.r} result. · ${sc.bonus} bonus</div>
+      </div>
+      <button onclick="closeMO()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:.85rem">
+      <div style="background:#e8f5e9;border-radius:10px;padding:.6rem;text-align:center">
+        <div style="font-size:1.3rem;font-weight:900;color:var(--green)">${sc.exact}</div>
+        <div style="font-size:.63rem;color:#2e7d32;font-weight:700">EXACTOS<br>×3 pts</div></div>
+      <div style="background:#fff3e0;border-radius:10px;padding:.6rem;text-align:center">
+        <div style="font-size:1.3rem;font-weight:900;color:#e65100">${sc.r}</div>
+        <div style="font-size:.63rem;color:#e65100;font-weight:700">RESULT.<br>×1 pt</div></div>
+      <div style="background:#fff8e1;border-radius:10px;padding:.6rem;text-align:center">
+        <div style="font-size:1.3rem;font-weight:900;color:var(--gold)">${sc.bonus}</div>
+        <div style="font-size:.63rem;color:#f57f17;font-weight:700">BONUS<br>pts</div></div>
+    </div>
+    <div style="background:#f5f5f5;border-radius:10px;padding:.75rem;margin-bottom:.85rem">
+      <div style="font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase">Picks especiales</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.3rem;text-align:center">
+        ${['champion','runnerUp','thirdPlace'].map((k,i)=>{const icons=['🏆','🥈','🥉'],labels=['Campeón','Sub','3ro'];const t=pred[k]?ALL_TEAMS.find(x=>x.n===pred[k]):null;
+          return`<div><div style="font-size:1rem">${t?t.f:icons[i]}</div><div style="font-size:.67rem;font-weight:700">${labels[i]}</div><div style="font-size:.68rem;color:var(--muted)">${pred[k]||'?'}</div></div>`}).join('')}
+      </div>
+    </div>
+    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">📋 Predicciones por grupo</div>
+    ${groupsHTML}
+  `;
+  document.getElementById('mo').classList.add('open');
+}
+function closeMO(){document.getElementById('mo').classList.remove('open');}
+
+/* ═══════════════ ADMIN ═══════════════ */
+function renderAdmin(){
+  if(!currentGroup||currentUser.uid!==currentGroup.ownerUid)return;
+  renderGTabs('admin-gtabs','setAdminGroup');
+  renderAdminMatches();
+  renderAdminSpecial();
+}
+
+function renderAdminMatches(){
+  const gm=MATCHES.filter(m=>m.group===curGroup);
+  document.getElementById('admin-c').innerHTML=gm.map(m=>{
+    const r=currentGroup?.results?.[m.id]||{};
+    return`<div class="mr">
+      <div class="tn h" style="font-size:.76rem">${m.home.f} ${m.home.n}</div>
+      <div class="siw">
+        <input class="si${r.h!==undefined?' f':''}" type="number" min="0" max="20"
+          value="${r.h!==undefined?r.h:''}" placeholder="-" onchange="saveResult('${m.id}','h',this.value)">
+        <span class="sdiv">:</span>
+        <input class="si${r.a!==undefined?' f':''}" type="number" min="0" max="20"
+          value="${r.a!==undefined?r.a:''}" placeholder="-" onchange="saveResult('${m.id}','a',this.value)">
+      </div>
+      <div class="tn a" style="font-size:.76rem">${m.away.n} ${m.away.f}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAdminSpecial(){
+  const tOpts=sel=>ALL_TEAMS.map(t=>`<option value="${t.n}"${t.n===sel?' selected':''}>${t.f} ${t.n}</option>`).join('');
+  const res=currentGroup?.results||{};
+  const gwRows=GK.map(g=>`<div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem">
+    <span class="gbadge">${g}</span>
+    <select class="fi" style="flex:1" onchange="saveSpecResult('gw_${g}',this.value)">
+      <option value="">– Real –</option>
+      ${GROUPS[g].teams.map(t=>`<option value="${t.n}"${res['gw_'+g]===t.n?' selected':''}>${t.f} ${t.n}</option>`).join('')}
+    </select></div>`).join('');
+  document.getElementById('admin-special').innerHTML=`
+    <div class="fg"><label class="fl">🏆 Campeón real (+5 pts)</label>
+      <select class="fi" onchange="saveSpecResult('champion',this.value)"><option value="">–</option>${tOpts(res.champion||'')}</select></div>
+    <div class="fg"><label class="fl">🥈 Subcampeón real (+3 pts)</label>
+      <select class="fi" onchange="saveSpecResult('runnerUp',this.value)"><option value="">–</option>${tOpts(res.runnerUp||'')}</select></div>
+    <div class="fg"><label class="fl">🥉 Tercer lugar real (+2 pts)</label>
+      <select class="fi" onchange="saveSpecResult('thirdPlace',this.value)"><option value="">–</option>${tOpts(res.thirdPlace||'')}</select></div>
+    <div class="fg"><label class="fl">🏅 Ganadores de grupo reales</label><div class="gw-g">${gwRows}</div></div>
+  `;
+}
+
+function setAdminGroup(g){curGroup=g;renderAdmin();}
+
+function saveResult(matchId,side,val){
+  if(!currentGroup)return;
+  const update={};
+  if(val===''){
+    // Need to delete the field – use a map
+    const cur={...(currentGroup.results?.[matchId]||{})};
+    delete cur[side];
+    update[`results.${matchId}`]=Object.keys(cur).length?cur:firebase.firestore.FieldValue.delete();
+  }else{
+    update[`results.${matchId}.${side}`]=parseInt(val);
+  }
+  db.collection('grupos').doc(currentGroup.id).update(update).catch(()=>{});
+  toast('✅ Guardado');
+}
+
+function saveSpecResult(key,val){
+  if(!currentGroup)return;
+  db.collection('grupos').doc(currentGroup.id)
+    .update({[`results.${key}`]:val||firebase.firestore.FieldValue.delete()})
+    .catch(()=>{});
+  toast('✅ Guardado');
+}
+
+function resetResults(){
+  if(!currentGroup)return;
+  if(!confirm('¿Borrar todos los resultados reales del grupo?'))return;
+  db.collection('grupos').doc(currentGroup.id).update({results:{},simResults:{}});
+  toast('🗑️ Resultados borrados');
+}
+
+/* ═══════════════ SIMULATOR ═══════════════ */
+function togglePhase(phase){
+  const btn=document.querySelector(`[data-phase="${phase}"]`);
+  if(selPhases.has(phase)){if(selPhases.size===1)return;selPhases.delete(phase);btn.classList.remove('sel');}
+  else{
+    if(phase==='all'){selPhases.clear();document.querySelectorAll('.ph-btn').forEach(b=>b.classList.remove('sel'));}
+    else{selPhases.delete('all');document.querySelector('[data-phase="all"]')?.classList.remove('sel');}
+    selPhases.add(phase);btn.classList.add('sel');
+  }
+}
+
+function runSim(){
+  if(!currentGroup)return;
+  const useAll=selPhases.has('all');
+  const sim={...currentGroup.simResults||{}};
+  let count=0;
+  if(useAll||selPhases.has('groups')){
+    MATCHES.forEach(m=>{if(!currentGroup.results?.[m.id]){sim[m.id]=randScore();count++;}});
+  }
+  if(useAll){
+    if(!currentGroup.results?.champion)sim.champion=randTeam().n;
+    if(!currentGroup.results?.runnerUp)sim.runnerUp=randTeam().n;
+    if(!currentGroup.results?.thirdPlace)sim.thirdPlace=randTeam().n;
+    GK.forEach(g=>{if(!currentGroup.results?.['gw_'+g]){
+      const ts=GROUPS[g].teams;sim['gw_'+g]=ts[Math.floor(Math.random()*ts.length)].n;}});
+  }
+  db.collection('grupos').doc(currentGroup.id).update({simResults:sim});
+  toast(`🎲 ${count} partidos simulados`);
+}
+
+function clearSim(){
+  if(!currentGroup)return;
+  db.collection('grupos').doc(currentGroup.id).update({simResults:{}});
+  simMode=false;
+  const btn=document.getElementById('sim-toggle');
+  if(btn){btn.textContent='🔬 Simulación';btn.style.background='var(--border)';btn.style.color='#555';}
+  toast('🧹 Simulación limpiada');
+}
+
+/* ═══════════════ BOTS ═══════════════ */
+function addBots(){
+  if(!currentGroup)return;
+  const existing=Object.values(groupMembers).filter(m=>m.isBot);
+  if(existing.length>=5)return toast('Ya hay 5 bots.');
+  const batch=db.batch();let added=0;
+  BOT_NAMES.forEach(bname=>{
+    const already=Object.values(groupMembers).find(m=>m.displayName===bname);
+    if(!already){
+      const uid='bot_'+Math.random().toString(36).substr(2,8);
+      batch.set(db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid),{
+        displayName:bname,photoURL:'',isBot:true,
+        joinedAt:firebase.firestore.FieldValue.serverTimestamp(),
+        predictions:genBotPreds()});
+      added++;
+    }
+  });
+  batch.commit();
+  toast(`🤖 ${added} bots agregados`);
+}
+
+function genBotPreds(){
+  const p={};
+  MATCHES.forEach(m=>{p[m.id]=randScore();});
+  p.champion=randTeam().n;p.runnerUp=randTeam().n;p.thirdPlace=randTeam().n;
+  GK.forEach(g=>{const ts=GROUPS[g].teams;p['gw_'+g]=ts[Math.floor(Math.random()*ts.length)].n;});
+  return p;
+}
+
+function removeBots(){
+  if(!currentGroup)return;
+  const bots=Object.entries(groupMembers).filter(([,m])=>m.isBot);
+  if(!bots.length)return toast('No hay bots.');
+  const batch=db.batch();
+  bots.forEach(([uid])=>batch.delete(db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)));
+  batch.commit();
+  toast(`🗑️ ${bots.length} bots eliminados`);
+}
+
+/* ═══════════════ TOAST ═══════════════ */
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
