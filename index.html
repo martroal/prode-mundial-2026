@@ -471,6 +471,10 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
   </nav>
 
   <div class="view active" id="view-preds">
+    <div class="stabs" id="preds-mode-tabs">
+      <button class="st active" id="pm-grupo" onclick="setPredsMode('grupo')">📁 Por grupo</button>
+      <button class="st" id="pm-jornada" onclick="setPredsMode('jornada')">📅 Por jornada</button>
+    </div>
     <div class="stabs" id="gtabs"></div>
     <div id="preds-c"></div>
   </div>
@@ -980,6 +984,8 @@ let unsubGroup   = null;
 let unsubMembers = null;
 let unsubGlobal  = null;
 let curGroup     = 'A';
+let curJornada   = 1;        // jornada activa en modo "por jornada"
+let predsMode    = 'grupo';  // 'grupo' | 'jornada' — cómo agrupar en Predicciones
 let selPhases    = new Set(['groups']);
 let simMode      = false;
 let torneoMode   = 'real';   // 'real' (usa globalResults) | 'sim' (usa myPreds)
@@ -1201,55 +1207,113 @@ function renderGTabs(id,fn){
   el.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="${fn}('${g}')">G.${g}</button>`).join('');
 }
 
+// Helper: devuelve un Date para ordenar partidos cronológicamente según SCHEDULE_MAP
+function matchDateTime(matchId){
+  const s=SCHEDULE_MAP[matchId];
+  if(!s)return new Date(2099,0,1);
+  const parts=s.date.split(' de ');
+  const monthName=parts[1]||'';
+  const dayStr=parts[0].split(' ').slice(-1)[0];
+  const day=parseInt(dayStr)||1;
+  const month=monthName==='Junio'?5:(monthName==='Julio'?6:0);
+  const[hh,mm]=(s.time||'00:00').split(':').map(Number);
+  return new Date(2026,month,day,hh||0,mm||0);
+}
+
+// Tabs de selector dentro de Predicciones (G.A..G.L o J1/J2/J3 según predsMode)
+function renderPredsSelectorTabs(){
+  const el=document.getElementById('gtabs');
+  if(!el)return;
+  if(predsMode==='jornada'){
+    el.innerHTML=[1,2,3].map(j=>`<button class="st${j===curJornada?' active':''}" onclick="setJornada(${j})">J${j}</button>`).join('');
+  }else{
+    el.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="setGroup('${g}')">G.${g}</button>`).join('');
+  }
+}
+
+// HTML de una fila de partido (reusada en ambos modos)
+function predMatchRowHTML(m,pred){
+  const p=pred[m.id]||{},r=globalResults?.[m.id];
+  let ind='';
+  if(r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
+    const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
+    ind=(+p.h===r.h&&+p.a===r.a)?'<span class="ie">★★★</span>':po===ro?'<span class="ir">★</span>':'<span class="iw">✗</span>';
+  }
+  const rD=(r&&r.h!==undefined)?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
+  const hv=p.h!==undefined&&p.h!==''?p.h:'',av=p.a!==undefined&&p.a!==''?p.a:'';
+  const sched=schedShort(m.id);
+  return `${sched?`<div class="m-sched">📅 ${sched}</div>`:''}
+  <div class="mr">
+    <div class="tn h">${m.home.f} ${m.home.n}</div>
+    <div class="sw">
+      <div class="siw">
+        <div class="si-wrap">
+          <button class="si-btn" onclick="bumpPred('${m.id}','h',-1)" aria-label="-1 gol local">−</button>
+          <input class="si${hv!==''?' f':''}" data-pred="${m.id}_h" type="number" min="0" max="20" value="${hv}" placeholder="-"
+            onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
+          <button class="si-btn" onclick="bumpPred('${m.id}','h',1)" aria-label="+1 gol local">+</button>
+        </div>
+        <span class="sdiv">:</span>
+        <div class="si-wrap">
+          <button class="si-btn" onclick="bumpPred('${m.id}','a',-1)" aria-label="-1 gol visitante">−</button>
+          <input class="si${av!==''?' f':''}" data-pred="${m.id}_a" type="number" min="0" max="20" value="${av}" placeholder="-"
+            onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
+          <button class="si-btn" onclick="bumpPred('${m.id}','a',1)" aria-label="+1 gol visitante">+</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div>
+    </div>
+    <div class="tn a">${m.away.n} ${m.away.f}</div>
+  </div>`;
+}
+
 function renderPreds(){
-  renderGTabs('gtabs','setGroup');
+  renderPredsSelectorTabs();
   const el=document.getElementById('preds-c');
   if(!currentUser){el.innerHTML='';return;}
   const pred=myPreds();
-  const gm=MATCHES.filter(m=>m.group===curGroup);
-  let html='<div class="card">';
-  html+=`<div class="ch"><span class="gbadge">${curGroup}</span>${GROUPS[curGroup].teams.map(t=>t.f+' '+t.n).join(' · ')}</div>`;
-  [1,2,3].forEach(j=>{
-    html+=`<div class="jl">Jornada ${j}</div>`;
-    gm.filter(m=>m.jornada===j).forEach(m=>{
-      const p=pred[m.id]||{},r=globalResults?.[m.id];
-      let ind='';
-      if(r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
-        const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
-        ind=(+p.h===r.h&&+p.a===r.a)?'<span class="ie">★★★</span>':po===ro?'<span class="ir">★</span>':'<span class="iw">✗</span>';
-      }
-      const rD=(r&&r.h!==undefined)?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
-      const hv=p.h!==undefined&&p.h!==''?p.h:'',av=p.a!==undefined&&p.a!==''?p.a:'';
-      const sched=schedShort(m.id);
-      html+=`${sched?`<div class="m-sched">📅 ${sched}</div>`:''}
-      <div class="mr">
-        <div class="tn h">${m.home.f} ${m.home.n}</div>
-        <div class="sw">
-          <div class="siw">
-            <div class="si-wrap">
-              <button class="si-btn" onclick="bumpPred('${m.id}','h',-1)" aria-label="-1 gol local">−</button>
-              <input class="si${hv!==''?' f':''}" data-pred="${m.id}_h" type="number" min="0" max="20" value="${hv}" placeholder="-"
-                onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
-              <button class="si-btn" onclick="bumpPred('${m.id}','h',1)" aria-label="+1 gol local">+</button>
-            </div>
-            <span class="sdiv">:</span>
-            <div class="si-wrap">
-              <button class="si-btn" onclick="bumpPred('${m.id}','a',-1)" aria-label="-1 gol visitante">−</button>
-              <input class="si${av!==''?' f':''}" data-pred="${m.id}_a" type="number" min="0" max="20" value="${av}" placeholder="-"
-                onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
-              <button class="si-btn" onclick="bumpPred('${m.id}','a',1)" aria-label="+1 gol visitante">+</button>
-            </div>
-          </div>
-          <div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div>
-        </div>
-        <div class="tn a">${m.away.n} ${m.away.f}</div>
-      </div>`;
+  let html='';
+  if(predsMode==='grupo'){
+    const gm=MATCHES.filter(m=>m.group===curGroup);
+    html='<div class="card">';
+    html+=`<div class="ch"><span class="gbadge">${curGroup}</span>${GROUPS[curGroup].teams.map(t=>t.f+' '+t.n).join(' · ')}</div>`;
+    [1,2,3].forEach(j=>{
+      html+=`<div class="jl">Jornada ${j}</div>`;
+      gm.filter(m=>m.jornada===j).forEach(m=>{html+=predMatchRowHTML(m,pred);});
     });
-  });
-  html+='</div><div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">★★★ Exacto = 3 pts · ★ Resultado = 1 pt</div>';
+    html+='</div>';
+  }else{
+    // Modo "por jornada": todos los partidos de curJornada ordenados por fecha+hora
+    const jm=MATCHES.filter(m=>m.jornada===curJornada)
+      .sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
+    html='<div class="card">';
+    html+=`<div class="ch">📅 Jornada ${curJornada} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} partidos · orden cronológico)</span></div>`;
+    let lastDate=null;
+    jm.forEach(m=>{
+      const s=SCHEDULE_MAP[m.id];
+      if(s&&s.date!==lastDate){
+        lastDate=s.date;
+        html+=`<div class="jl">${s.date}</div>`;
+      }
+      html+=`<div style="font-size:.65rem;color:var(--muted);text-align:center;padding:.1rem 0;font-weight:700"><span class="gbadge">${m.group}</span></div>`;
+      html+=predMatchRowHTML(m,pred);
+    });
+    html+='</div>';
+  }
+  html+='<div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">★★★ Exacto = 3 pts · ★ Resultado = 1 pt</div>';
   el.innerHTML=html;
 }
-function setGroup(g){curGroup=g;renderPreds();renderGTabs('gtabs','setGroup');}
+
+function setGroup(g){curGroup=g;renderPreds();}
+function setJornada(j){curJornada=j;renderPreds();}
+function setPredsMode(mode){
+  predsMode=mode;
+  const g=document.getElementById('pm-grupo');
+  const j=document.getElementById('pm-jornada');
+  if(g)g.classList.toggle('active',mode==='grupo');
+  if(j)j.classList.toggle('active',mode==='jornada');
+  renderPreds();
+}
 
 function bumpPred(matchId,side,delta){
   if(!currentUser||!currentGroup)return;
