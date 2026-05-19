@@ -284,8 +284,28 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 /* SCHEDULE LABEL */
 .m-sched{font-size:.65rem;color:var(--muted);text-align:center;padding:.1rem .3rem;margin-top:.25rem;background:#fafafa;border-radius:6px;font-weight:600}
 
+/* TORNEO — 2-col grids (mobile = 1 col, tablet+ = 2 col) */
+.t-standings-grid{display:grid;grid-template-columns:1fr;gap:.6rem}
+.ko-matches-grid{display:grid;grid-template-columns:1fr;gap:.4rem}
+@media(min-width:600px){
+  .t-standings-grid{grid-template-columns:repeat(2,1fr)}
+  .ko-matches-grid{grid-template-columns:repeat(2,1fr)}
+}
+.ko-matches-grid.solo{grid-template-columns:1fr!important}
+.ko-matches-grid.solo .ko-m{max-width:420px;margin-left:auto;margin-right:auto;width:100%}
+
+/* PREDICCIONES — botones +/- en inputs */
+.si-wrap{display:inline-flex;align-items:center;gap:.15rem}
+.si-btn{width:24px;height:33px;border:2px solid var(--border);background:#fafafa;border-radius:6px;font-weight:900;cursor:pointer;font-size:1rem;color:var(--p);padding:0;display:flex;align-items:center;justify-content:center;line-height:1;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.si-btn:hover{background:#eee;border-color:var(--p)}
+.si-btn:active{background:#ddd;transform:scale(.92)}
+@media(max-width:480px){
+  .si-btn{width:22px;height:29px;font-size:.9rem}
+  .si{width:30px;height:29px}
+}
+
 /* TORNEO — Standings */
-.t-grp{margin-bottom:.85rem;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.t-grp{margin-bottom:0;border:1px solid var(--border);border-radius:10px;overflow:hidden}
 .t-grp-h{background:#f5f5fa;padding:.4rem .55rem;font-size:.8rem;font-weight:800;color:var(--p);display:flex;align-items:center;gap:.4rem}
 .t-tab{width:100%;border-collapse:collapse;font-size:.74rem}
 .t-tab thead th{background:#fafafa;padding:.3rem .2rem;font-weight:700;color:var(--muted);font-size:.66rem;text-align:center;border-bottom:1px solid var(--border)}
@@ -1156,11 +1176,19 @@ function renderPreds(){
         <div class="tn h">${m.home.f} ${m.home.n}</div>
         <div class="sw">
           <div class="siw">
-            <input class="si${hv!==''?' f':''}" type="number" min="0" max="20" value="${hv}" placeholder="-"
-              onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
+            <div class="si-wrap">
+              <button class="si-btn" onclick="bumpPred('${m.id}','h',-1)" aria-label="-1 gol local">−</button>
+              <input class="si${hv!==''?' f':''}" data-pred="${m.id}_h" type="number" min="0" max="20" value="${hv}" placeholder="-"
+                onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
+              <button class="si-btn" onclick="bumpPred('${m.id}','h',1)" aria-label="+1 gol local">+</button>
+            </div>
             <span class="sdiv">:</span>
-            <input class="si${av!==''?' f':''}" type="number" min="0" max="20" value="${av}" placeholder="-"
-              onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
+            <div class="si-wrap">
+              <button class="si-btn" onclick="bumpPred('${m.id}','a',-1)" aria-label="-1 gol visitante">−</button>
+              <input class="si${av!==''?' f':''}" data-pred="${m.id}_a" type="number" min="0" max="20" value="${av}" placeholder="-"
+                onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
+              <button class="si-btn" onclick="bumpPred('${m.id}','a',1)" aria-label="+1 gol visitante">+</button>
+            </div>
           </div>
           <div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div>
         </div>
@@ -1172,6 +1200,18 @@ function renderPreds(){
   el.innerHTML=html;
 }
 function setGroup(g){curGroup=g;renderPreds();renderGTabs('gtabs','setGroup');}
+
+function bumpPred(matchId,side,delta){
+  if(!currentUser||!currentGroup)return;
+  const cur=myPreds()[matchId]?.[side];
+  const curNum=(cur===''||cur===undefined||cur===null)?0:+cur;
+  const newVal=Math.max(0,Math.min(20,curNum+delta));
+  if(newVal===curNum&&cur!==''&&cur!==undefined)return;
+  savePred(matchId,side,String(newVal));
+  // Update input visualmente sin re-render completo
+  const input=document.querySelector(`input[data-pred="${matchId}_${side}"]`);
+  if(input){input.value=newVal;input.classList.add('f');}
+}
 
 function savePred(matchId,side,val){
   if(!currentUser||!currentGroup)return;
@@ -1472,7 +1512,7 @@ function renderStandings(){
   const el=document.getElementById('torneo-standings');
   if(!el)return;
   const pred=torneoSource();
-  el.innerHTML=GK.map(g=>{
+  const cards=GK.map(g=>{
     const st=calcStandings(g,pred);
     const rows=st.map((s,i)=>{
       const qualClass=i<2?'qual':(i===2?'maybe':'out');
@@ -1496,7 +1536,9 @@ function renderStandings(){
         <tbody>${rows}</tbody>
       </table>
     </div>`;
-  }).join('')+`<div class="t-leg">
+  }).join('');
+  el.innerHTML=`<div class="t-standings-grid">${cards}</div>
+  <div class="t-leg">
     <span class="t-leg-i"><span class="t-leg-d" style="background:#e8f5e9"></span>Top 2: clasifica directo</span>
     <span class="t-leg-i"><span class="t-leg-d" style="background:#fff8e1"></span>3° puesto: clasifica si está entre los 8 mejores</span>
   </div>`;
@@ -1564,9 +1606,11 @@ function renderBracketKO(){
         <div class="ko-foot">${scoreReal}${ind}</div>
       </div>`;
     }).join('');
+    // SF (semis) y F (final + 3er puesto) van 1 col centrado por jerarquía visual
+    const solo=(round.key==='sf'||round.key==='f')?' solo':'';
     return`<div class="ko-r">
       <div class="ko-r-h">${round.icon} ${round.label} <span class="ko-r-n">(${matches.length} ${matches.length===1?'partido':'partidos'})</span></div>
-      ${matchesHTML}
+      <div class="ko-matches-grid${solo}">${matchesHTML}</div>
     </div>`;
   }).join('');
 }
