@@ -320,7 +320,11 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .ko-i.f{background:#e8f5e9;border-color:var(--green);color:#1b5e20}
 .ko-foot{display:flex;justify-content:center;align-items:center;gap:.4rem;font-size:.7rem;min-height:1rem;color:var(--muted)}
 .ko-real{color:var(--green);font-weight:700}
-.ko-tie-pick{font-size:.7rem;color:#6a1b9a;font-weight:700}
+.ko-tie{margin-top:.35rem;padding:.4rem;background:#fff8e1;border-radius:6px;display:flex;flex-direction:column;gap:.3rem;align-items:stretch}
+.ko-tie-lbl{font-size:.7rem;font-weight:700;color:#f57f17;text-align:center}
+.ko-tie-btn{font-size:.78rem;font-weight:700;padding:.4rem .6rem;border:2px solid #ffd54f;background:#fff;border-radius:6px;cursor:pointer;color:#5d4037;transition:all .12s}
+.ko-tie-btn:hover{background:#fff3e0}
+.ko-tie-btn.sel{background:var(--green);border-color:var(--green);color:#fff}
 </style>
 </head>
 <body>
@@ -761,70 +765,78 @@ function schedShort(matchId){
 }
 
 /* ═══════════════ STANDINGS + BRACKET RESOLUTION ═══════════════ */
-function calcStandings(groupKey){
+// pred = mapa de matchId -> {h,a,winner?}. Default: predicciones del user actual (mi simulación).
+function _validPred(r){return r&&r.h!==undefined&&r.h!==''&&r.a!==undefined&&r.a!=='';}
+function calcStandings(groupKey,pred){
+  pred=pred||myPreds();
   const teams=GROUPS[groupKey].teams;
   const stats=teams.map(t=>({team:t,pj:0,g:0,e:0,p:0,gf:0,gc:0,dg:0,pts:0}));
   const gm=MATCHES.filter(m=>m.group===groupKey);
   gm.forEach(m=>{
-    const r=globalResults?.[m.id];
-    if(!r||r.h===undefined||r.a===undefined)return;
+    const r=pred[m.id];
+    if(!_validPred(r))return;
+    const h=+r.h,a=+r.a;
     const home=stats.find(s=>s.team.n===m.home.n);
     const away=stats.find(s=>s.team.n===m.away.n);
     home.pj++;away.pj++;
-    home.gf+=r.h;home.gc+=r.a;
-    away.gf+=r.a;away.gc+=r.h;
-    if(r.h>r.a){home.g++;home.pts+=3;away.p++;}
-    else if(r.h<r.a){away.g++;away.pts+=3;home.p++;}
+    home.gf+=h;home.gc+=a;
+    away.gf+=a;away.gc+=h;
+    if(h>a){home.g++;home.pts+=3;away.p++;}
+    else if(h<a){away.g++;away.pts+=3;home.p++;}
     else{home.e++;away.e++;home.pts++;away.pts++;}
   });
   stats.forEach(s=>{s.dg=s.gf-s.gc;});
   stats.sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf||a.team.n.localeCompare(b.team.n));
   return stats;
 }
-function getBest3rds(){
-  const thirds=GK.map(g=>{const s=calcStandings(g)[2];return{...s,group:g};});
+function getBest3rds(pred){
+  pred=pred||myPreds();
+  const thirds=GK.map(g=>{const s=calcStandings(g,pred)[2];return{...s,group:g};});
   thirds.sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf);
   return thirds.slice(0,8);
 }
-function resolveSlot(slot){
+function resolveSlot(slot,pred){
+  pred=pred||myPreds();
   if(!slot)return null;
-  if(slot.startsWith('W_'))return getKOWinner(slot.slice(2));
-  if(slot.startsWith('L_'))return getKOLoser(slot.slice(2));
+  if(slot.startsWith('W_'))return getKOWinner(slot.slice(2),pred);
+  if(slot.startsWith('L_'))return getKOLoser(slot.slice(2),pred);
   if(slot[0]==='1'||slot[0]==='2'){
     const pos=parseInt(slot[0])-1;
     const g=slot.slice(1);
-    const st=calcStandings(g);
-    return st[pos]?.team||null;
+    return calcStandings(g,pred)[pos]?.team||null;
   }
   if(slot[0]==='3'){
     const n=parseInt(slot.slice(1))-1;
-    const best=getBest3rds();
-    return best[n]?.team||null;
+    return getBest3rds(pred)[n]?.team||null;
   }
   return null;
 }
-function getKOWinner(matchId){
-  const r=globalResults?.[matchId];
-  if(!r||r.h===undefined||r.a===undefined)return null;
+function getKOWinner(matchId,pred){
+  pred=pred||myPreds();
+  const r=pred[matchId];
+  if(!_validPred(r))return null;
   const def=KO_MATCHES.find(m=>m.id===matchId);
   if(!def)return null;
-  const home=resolveSlot(def.home),away=resolveSlot(def.away);
+  const home=resolveSlot(def.home,pred),away=resolveSlot(def.away,pred);
   if(!home||!away)return null;
-  if(r.h>r.a)return home;
-  if(r.h<r.a)return away;
+  const h=+r.h,a=+r.a;
+  if(h>a)return home;
+  if(h<a)return away;
   if(r.winner==='h')return home;
   if(r.winner==='a')return away;
   return null;
 }
-function getKOLoser(matchId){
-  const r=globalResults?.[matchId];
-  if(!r||r.h===undefined||r.a===undefined)return null;
+function getKOLoser(matchId,pred){
+  pred=pred||myPreds();
+  const r=pred[matchId];
+  if(!_validPred(r))return null;
   const def=KO_MATCHES.find(m=>m.id===matchId);
   if(!def)return null;
-  const home=resolveSlot(def.home),away=resolveSlot(def.away);
+  const home=resolveSlot(def.home,pred),away=resolveSlot(def.away,pred);
   if(!home||!away)return null;
-  if(r.h>r.a)return away;
-  if(r.h<r.a)return home;
+  const h=+r.h,a=+r.a;
+  if(h>a)return away;
+  if(h<a)return home;
   if(r.winner==='h')return away;
   if(r.winner==='a')return home;
   return null;
@@ -1081,13 +1093,7 @@ function renderPreds(){
   [1,2,3].forEach(j=>{
     html+=`<div class="jl">Jornada ${j}</div>`;
     gm.filter(m=>m.jornada===j).forEach(m=>{
-      const p=pred[m.id]||{},r=globalResults?.[m.id];
-      let ind='';
-      if(r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
-        const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
-        ind=(+p.h===r.h&&+p.a===r.a)?'<span class="ie">★★★</span>':po===ro?'<span class="ir">★</span>':'<span class="iw">✗</span>';
-      }
-      const rD=(r&&r.h!==undefined)?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
+      const p=pred[m.id]||{};
       const hv=p.h!==undefined&&p.h!==''?p.h:'',av=p.a!==undefined&&p.a!==''?p.a:'';
       const sched=schedShort(m.id);
       html+=`${sched?`<div class="m-sched">📅 ${sched}</div>`:''}
@@ -1101,13 +1107,12 @@ function renderPreds(){
             <input class="si${av!==''?' f':''}" type="number" min="0" max="20" value="${av}" placeholder="-"
               onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
           </div>
-          <div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div>
         </div>
         <div class="tn a">${m.away.n} ${m.away.f}</div>
       </div>`;
     });
   });
-  html+='</div><div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">★★★ Exacto = 3 pts · ★ Resultado = 1 pt</div>';
+  html+='</div><div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">🎲 Tus predicciones definen tu simulación · andá a Torneo para ver tu bracket</div>';
   el.innerHTML=html;
 }
 function setGroup(g){curGroup=g;renderPreds();renderGTabs('gtabs','setGroup');}
@@ -1420,45 +1425,42 @@ function renderBracketKO(){
   el.innerHTML=KO_ROUNDS.map(round=>{
     const matches=KO_STRUCTURE[round.key];
     const matchesHTML=matches.map(m=>{
-      const home=resolveSlot(m.home);
-      const away=resolveSlot(m.away);
-      const r=globalResults?.[m.id];
-      const hasResult=r&&r.h!==undefined&&r.a!==undefined;
-      const winner=getKOWinner(m.id);
-      const hCls=winner&&winner.n===home?.n?'w':(hasResult&&!winner?'':(hasResult?'l':''));
-      const aCls=winner&&winner.n===away?.n?'w':(hasResult&&!winner?'':(hasResult?'l':''));
+      const home=resolveSlot(m.home,pred);
+      const away=resolveSlot(m.away,pred);
+      const p=pred[m.id]||{};
+      const pH=p.h!==undefined&&p.h!==''?p.h:'';
+      const pA=p.a!==undefined&&p.a!==''?p.a:'';
+      const filled=pH!==''&&pA!=='';
+      const isTie=filled&&(+pH===+pA);
+      const winner=getKOWinner(m.id,pred);
+      const hCls=winner&&winner.n===home?.n?'w':'';
+      const aCls=winner&&winner.n===away?.n?'w':'';
       const hLabel=home?`${home.f} ${home.n}`:`<i class="ko-tbd">${slotLabel(m.home)}</i>`;
       const aLabel=away?`${away.f} ${away.n}`:`<i class="ko-tbd">${slotLabel(m.away)}</i>`;
       const isFinal=m.id==='f_1',isTP=m.id.startsWith('tp');
       const label=isFinal?'<div class="ko-m-lbl" style="background:#fff3e0;color:#e65100">🏆 FINAL</div>':(isTP?'<div class="ko-m-lbl">3er puesto</div>':'');
-      const p=pred[m.id]||{};
-      const pH=p.h!==undefined&&p.h!==''?p.h:'';
-      const pA=p.a!==undefined&&p.a!==''?p.a:'';
-      let ind='';
-      if(hasResult&&pH!==''&&pA!==''){
-        const po=Math.sign(+pH-(+pA)),ro=Math.sign(r.h-r.a);
-        if(+pH===r.h&&+pA===r.a)ind='<span class="ie">★★★</span>';
-        else if(po===ro)ind='<span class="ir">★</span>';
-        else ind='<span class="iw">✗</span>';
-      }
-      const scoreReal=hasResult?`<span class="ko-real">[${r.h}-${r.a}]</span>`:'';
       const teamsKnown=!!(home&&away);
       const disabled=teamsKnown?'':'disabled';
       const sched=schedShort(m.id);
+      const tiePicker=(isTie&&teamsKnown)?`<div class="ko-tie">
+        <span class="ko-tie-lbl">¿Quién pasa?</span>
+        <button class="ko-tie-btn${p.winner==='h'?' sel':''}" onclick="savePredWinner('${m.id}','h')">${home.f} ${home.n}</button>
+        <button class="ko-tie-btn${p.winner==='a'?' sel':''}" onclick="savePredWinner('${m.id}','a')">${away.f} ${away.n}</button>
+      </div>`:'';
       return`<div class="ko-m">
         ${label}
         ${sched?`<div class="m-sched">📅 ${sched}</div>`:''}
         <div class="ko-row">
           <div class="ko-side ${hCls}">${hLabel}</div>
           <input class="ko-i${pH!==''?' f':''}" type="number" min="0" max="20" value="${pH}" placeholder="-" ${disabled}
-            onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
+            onchange="savePred('${m.id}','h',this.value);renderTorneo()">
         </div>
         <div class="ko-row">
           <div class="ko-side ${aCls}">${aLabel}</div>
           <input class="ko-i${pA!==''?' f':''}" type="number" min="0" max="20" value="${pA}" placeholder="-" ${disabled}
-            onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
+            onchange="savePred('${m.id}','a',this.value);renderTorneo()">
         </div>
-        <div class="ko-foot">${scoreReal}${ind}</div>
+        ${tiePicker}
       </div>`;
     }).join('');
     return`<div class="ko-r">
@@ -1466,6 +1468,18 @@ function renderBracketKO(){
       ${matchesHTML}
     </div>`;
   }).join('');
+}
+
+function savePredWinner(matchId,side){
+  if(!currentUser||!currentGroup)return;
+  const uid=currentUser.uid;
+  if(!groupMembers[uid])groupMembers[uid]={predictions:{}};
+  if(!groupMembers[uid].predictions)groupMembers[uid].predictions={};
+  if(!groupMembers[uid].predictions[matchId])groupMembers[uid].predictions[matchId]={};
+  groupMembers[uid].predictions[matchId].winner=side;
+  db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
+    .update({[`predictions.${matchId}.winner`]:side}).catch(()=>{});
+  renderTorneo();
 }
 
 /* ═══════════════ ADMIN ═══════════════ */
