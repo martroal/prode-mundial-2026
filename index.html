@@ -284,19 +284,14 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 /* SCHEDULE LABEL */
 .m-sched{font-size:.65rem;color:var(--muted);text-align:center;padding:.1rem .3rem;margin-top:.25rem;background:#fafafa;border-radius:6px;font-weight:600}
 
-/* TORNEO — 2-col grids siempre (incluso mobile). Para pantallas <320px caemos a 1 col. */
-.t-standings-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+/* TORNEO grids — Fase grupos: 1 col (full width). Eliminatorias: 2 cols (1 en ultra-mobile). */
+.t-standings-grid{display:grid;grid-template-columns:1fr;gap:.6rem}
 .ko-matches-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem}
 .ko-matches-grid.solo{grid-template-columns:1fr!important}
 .ko-matches-grid.solo .ko-m{max-width:420px;margin-left:auto;margin-right:auto;width:100%}
 @media(max-width:320px){
-  .t-standings-grid,.ko-matches-grid{grid-template-columns:1fr}
+  .ko-matches-grid{grid-template-columns:1fr}
 }
-/* En 2 cols, comprimir tabla para que entre */
-.t-standings-grid .t-tab{font-size:.66rem}
-.t-standings-grid .t-tab thead th{font-size:.6rem;padding:.25rem .12rem}
-.t-standings-grid .t-tab tbody td{padding:.28rem .12rem}
-.t-standings-grid .t-name{font-size:.66rem;line-height:1.15;word-break:break-word}
 
 /* PREDICCIONES — botones +/- en inputs */
 .si-wrap{display:inline-flex;align-items:center;gap:.15rem}
@@ -446,13 +441,21 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
       </div>
       <div class="t-mode-help" id="t-mode-help">Standings y bracket se llenan con los <b>resultados reales</b> cargados por el admin.</div>
     </div>
-    <div class="card">
-      <div class="ch">📊 Tablas de grupos <span style="font-size:.7rem;color:var(--muted);font-weight:600">(se actualizan en vivo)</span></div>
-      <div id="torneo-standings"></div>
+    <div class="stabs" id="torneo-subtabs">
+      <button class="st active" id="tsub-grupos" onclick="setTorneoSubtab('grupos')">📊 Fase de grupos</button>
+      <button class="st" id="tsub-ko" onclick="setTorneoSubtab('ko')">🏆 Eliminatorias</button>
     </div>
-    <div class="card">
-      <div class="ch">🏆 Eliminatorias <span style="font-size:.7rem;color:var(--muted);font-weight:600">(predecí cada partido + ver el bracket llenarse)</span></div>
-      <div id="torneo-bracket"></div>
+    <div id="torneo-grupos-section">
+      <div class="card">
+        <div class="ch">📊 Tablas de grupos <span style="font-size:.7rem;color:var(--muted);font-weight:600">(se actualizan en vivo)</span></div>
+        <div id="torneo-standings"></div>
+      </div>
+    </div>
+    <div id="torneo-ko-section" style="display:none">
+      <div class="card">
+        <div class="ch">🏆 Eliminatorias <span style="font-size:.7rem;color:var(--muted);font-weight:600">(predecí cada partido + ver el bracket llenarse)</span></div>
+        <div id="torneo-bracket"></div>
+      </div>
     </div>
   </div>
   <div class="view" id="view-bracket">
@@ -938,6 +941,7 @@ let curGroup     = 'A';
 let selPhases    = new Set(['groups']);
 let simMode      = false;
 let torneoMode   = 'real';   // 'real' (usa globalResults) | 'sim' (usa myPreds)
+let torneoSubtab = 'grupos'; // 'grupos' | 'ko'
 let pendingWrites = {};    // debounce map
 
 /* ═══════════════ AUTH ═══════════════ */
@@ -1507,9 +1511,23 @@ function savePredWinner(matchId,side){
 
 function torneoSource(){return torneoMode==='sim'?myPreds():(globalResults||{});}
 
+function setTorneoSubtab(tab){
+  torneoSubtab=tab;
+  const gSec=document.getElementById('torneo-grupos-section');
+  const kSec=document.getElementById('torneo-ko-section');
+  const gBtn=document.getElementById('tsub-grupos');
+  const kBtn=document.getElementById('tsub-ko');
+  if(gSec)gSec.style.display=tab==='grupos'?'':'none';
+  if(kSec)kSec.style.display=tab==='ko'?'':'none';
+  if(gBtn)gBtn.classList.toggle('active',tab==='grupos');
+  if(kBtn)kBtn.classList.toggle('active',tab==='ko');
+  renderTorneo();
+}
+
 function renderTorneo(){
-  renderStandings();
-  renderBracketKO();
+  // Render solo el subtab activo (más rápido + UI más corta)
+  if(torneoSubtab==='grupos')renderStandings();
+  else renderBracketKO();
 }
 
 function renderStandings(){
