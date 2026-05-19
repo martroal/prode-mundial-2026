@@ -321,6 +321,20 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .ko-foot{display:flex;justify-content:center;align-items:center;gap:.4rem;font-size:.7rem;min-height:1rem;color:var(--muted)}
 .ko-real{color:var(--green);font-weight:700}
 .ko-tie-pick{font-size:.7rem;color:#6a1b9a;font-weight:700}
+.ko-tie{margin-top:.35rem;padding:.4rem;background:#fff8e1;border-radius:6px;display:flex;flex-direction:column;gap:.3rem;align-items:stretch}
+.ko-tie-lbl{font-size:.7rem;font-weight:700;color:#f57f17;text-align:center}
+.ko-tie-btn{font-size:.78rem;font-weight:700;padding:.4rem .6rem;border:2px solid #ffd54f;background:#fff;border-radius:6px;cursor:pointer;color:#5d4037;transition:all .12s}
+.ko-tie-btn:hover{background:#fff3e0}
+.ko-tie-btn.sel{background:var(--green);border-color:var(--green);color:#fff}
+
+/* MODO TORNEO (toggle Real/Sim) */
+.t-mode-card{background:linear-gradient(135deg,#f3e5f5,#ede7f6);border:1.5px solid #ce93d8;border-radius:11px;padding:.65rem .75rem;margin-bottom:.9rem}
+.t-mode-lbl{font-size:.7rem;font-weight:800;color:#6a1b9a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem}
+.t-mode-grp{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+.t-mode-btn{padding:.5rem;border:2px solid #ce93d8;background:#fff;border-radius:8px;font-weight:700;font-size:.8rem;color:#6a1b9a;cursor:pointer;transition:all .12s}
+.t-mode-btn:hover{background:#f3e5f5}
+.t-mode-btn.sel{background:#6a1b9a;border-color:#6a1b9a;color:#fff;box-shadow:0 1px 3px rgba(106,27,154,.3)}
+.t-mode-help{font-size:.7rem;color:#6a1b9a;margin-top:.45rem;line-height:1.3}
 </style>
 </head>
 <body>
@@ -400,6 +414,14 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
     <div id="preds-c"></div>
   </div>
   <div class="view" id="view-torneo">
+    <div class="t-mode-card">
+      <div class="t-mode-lbl">Ver torneo según:</div>
+      <div class="t-mode-grp">
+        <button class="t-mode-btn sel" id="t-mode-real" onclick="setTorneoMode('real')">📊 Resultados reales</button>
+        <button class="t-mode-btn" id="t-mode-sim" onclick="setTorneoMode('sim')">🎲 Mi simulación</button>
+      </div>
+      <div class="t-mode-help" id="t-mode-help">Standings y bracket se llenan con los <b>resultados reales</b> cargados por el admin.</div>
+    </div>
     <div class="card">
       <div class="ch">📊 Tablas de grupos <span style="font-size:.7rem;color:var(--muted);font-weight:600">(se actualizan en vivo)</span></div>
       <div id="torneo-standings"></div>
@@ -761,70 +783,101 @@ function schedShort(matchId){
 }
 
 /* ═══════════════ STANDINGS + BRACKET RESOLUTION ═══════════════ */
-function calcStandings(groupKey){
+// FIFA 2026: cada slot de 3ro acepta sólo a equipos de un subset de 5 grupos
+const R32_THIRD_SLOTS={
+  '31':'ABCDF',  // P74: 1°E vs 3°A/B/C/D/F
+  '32':'CDFGH',  // P77: 1°I vs 3°C/D/F/G/H
+  '33':'CEFHI',  // P79: 1°A vs 3°C/E/F/H/I
+  '34':'EHIJK',  // P80: 1°L vs 3°E/H/I/J/K
+  '35':'BEFIJ',  // P81: 1°D vs 3°B/E/F/I/J
+  '36':'AEHIJ',  // P82: 1°G vs 3°A/E/H/I/J
+  '37':'EFGIJ',  // P85: 1°B vs 3°E/F/G/I/J
+  '38':'DEIJL'   // P87: 1°K vs 3°D/E/I/J/L
+};
+function _validRes(r){return r&&r.h!==undefined&&r.h!==''&&r.a!==undefined&&r.a!==''}
+function calcStandings(groupKey,pred){
+  pred=pred||globalResults||{};
   const teams=GROUPS[groupKey].teams;
   const stats=teams.map(t=>({team:t,pj:0,g:0,e:0,p:0,gf:0,gc:0,dg:0,pts:0}));
   const gm=MATCHES.filter(m=>m.group===groupKey);
   gm.forEach(m=>{
-    const r=globalResults?.[m.id];
-    if(!r||r.h===undefined||r.a===undefined)return;
+    const r=pred[m.id];
+    if(!_validRes(r))return;
+    const h=+r.h,a=+r.a;
     const home=stats.find(s=>s.team.n===m.home.n);
     const away=stats.find(s=>s.team.n===m.away.n);
     home.pj++;away.pj++;
-    home.gf+=r.h;home.gc+=r.a;
-    away.gf+=r.a;away.gc+=r.h;
-    if(r.h>r.a){home.g++;home.pts+=3;away.p++;}
-    else if(r.h<r.a){away.g++;away.pts+=3;home.p++;}
+    home.gf+=h;home.gc+=a;
+    away.gf+=a;away.gc+=h;
+    if(h>a){home.g++;home.pts+=3;away.p++;}
+    else if(h<a){away.g++;away.pts+=3;home.p++;}
     else{home.e++;away.e++;home.pts++;away.pts++;}
   });
   stats.forEach(s=>{s.dg=s.gf-s.gc;});
   stats.sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf||a.team.n.localeCompare(b.team.n));
   return stats;
 }
-function getBest3rds(){
-  const thirds=GK.map(g=>{const s=calcStandings(g)[2];return{...s,group:g};});
+function getBest3rds(pred){
+  pred=pred||globalResults||{};
+  const thirds=GK.map(g=>{const s=calcStandings(g,pred)[2];return{...s,group:g};});
   thirds.sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf);
   return thirds.slice(0,8);
 }
-function resolveSlot(slot){
+// Asignación greedy de los 8 mejores 3ros a los 8 slots de R32 respetando las restricciones FIFA
+function assignBest3rds(pred){
+  pred=pred||globalResults||{};
+  const qualifying=getBest3rds(pred);
+  const assignment={};
+  const used=new Set();
+  ['31','32','33','34','35','36','37','38'].forEach(slot=>{
+    const allowed=R32_THIRD_SLOTS[slot];
+    const cand=qualifying.find(t=>t.team&&allowed.includes(t.group)&&!used.has(t.group));
+    if(cand){assignment[slot]=cand.team;used.add(cand.group);}
+    else assignment[slot]=null;
+  });
+  return assignment;
+}
+function resolveSlot(slot,pred){
+  pred=pred||globalResults||{};
   if(!slot)return null;
-  if(slot.startsWith('W_'))return getKOWinner(slot.slice(2));
-  if(slot.startsWith('L_'))return getKOLoser(slot.slice(2));
+  if(slot.startsWith('W_'))return getKOWinner(slot.slice(2),pred);
+  if(slot.startsWith('L_'))return getKOLoser(slot.slice(2),pred);
   if(slot[0]==='1'||slot[0]==='2'){
     const pos=parseInt(slot[0])-1;
     const g=slot.slice(1);
-    const st=calcStandings(g);
-    return st[pos]?.team||null;
+    return calcStandings(g,pred)[pos]?.team||null;
   }
   if(slot[0]==='3'){
-    const n=parseInt(slot.slice(1))-1;
-    const best=getBest3rds();
-    return best[n]?.team||null;
+    return assignBest3rds(pred)[slot]||null;
   }
   return null;
 }
-function getKOWinner(matchId){
-  const r=globalResults?.[matchId];
-  if(!r||r.h===undefined||r.a===undefined)return null;
+function getKOWinner(matchId,pred){
+  pred=pred||globalResults||{};
+  const r=pred[matchId];
+  if(!_validRes(r))return null;
   const def=KO_MATCHES.find(m=>m.id===matchId);
   if(!def)return null;
-  const home=resolveSlot(def.home),away=resolveSlot(def.away);
+  const home=resolveSlot(def.home,pred),away=resolveSlot(def.away,pred);
   if(!home||!away)return null;
-  if(r.h>r.a)return home;
-  if(r.h<r.a)return away;
+  const h=+r.h,a=+r.a;
+  if(h>a)return home;
+  if(h<a)return away;
   if(r.winner==='h')return home;
   if(r.winner==='a')return away;
   return null;
 }
-function getKOLoser(matchId){
-  const r=globalResults?.[matchId];
-  if(!r||r.h===undefined||r.a===undefined)return null;
+function getKOLoser(matchId,pred){
+  pred=pred||globalResults||{};
+  const r=pred[matchId];
+  if(!_validRes(r))return null;
   const def=KO_MATCHES.find(m=>m.id===matchId);
   if(!def)return null;
-  const home=resolveSlot(def.home),away=resolveSlot(def.away);
+  const home=resolveSlot(def.home,pred),away=resolveSlot(def.away,pred);
   if(!home||!away)return null;
-  if(r.h>r.a)return away;
-  if(r.h<r.a)return home;
+  const h=+r.h,a=+r.a;
+  if(h>a)return away;
+  if(h<a)return home;
   if(r.winner==='h')return away;
   if(r.winner==='a')return home;
   return null;
@@ -860,6 +913,7 @@ let unsubGlobal  = null;
 let curGroup     = 'A';
 let selPhases    = new Set(['groups']);
 let simMode      = false;
+let torneoMode   = 'real';   // 'real' (usa globalResults) | 'sim' (usa myPreds)
 let pendingWrites = {};    // debounce map
 
 /* ═══════════════ AUTH ═══════════════ */
@@ -1375,6 +1429,33 @@ function showProfile(uid){
 function closeMO(){document.getElementById('mo').classList.remove('open');}
 
 /* ═══════════════ TORNEO (standings + bracket KO) ═══════════════ */
+function setTorneoMode(mode){
+  torneoMode=mode;
+  const real=document.getElementById('t-mode-real');
+  const sim=document.getElementById('t-mode-sim');
+  const help=document.getElementById('t-mode-help');
+  if(real){real.classList.toggle('sel',mode==='real');}
+  if(sim){sim.classList.toggle('sel',mode==='sim');}
+  if(help){help.innerHTML=mode==='sim'
+    ?'Standings y bracket se llenan con <b>TUS predicciones</b> como si fueran reales. Tipea scores en Predicciones (o directo acá en el bracket) y mirá cómo evoluciona tu Mundial. Cada usuario tiene su propia simulación.'
+    :'Standings y bracket se llenan con los <b>resultados reales</b> cargados por el admin.';}
+  renderTorneo();
+}
+
+function savePredWinner(matchId,side){
+  if(!currentUser||!currentGroup)return;
+  const uid=currentUser.uid;
+  if(!groupMembers[uid])groupMembers[uid]={predictions:{}};
+  if(!groupMembers[uid].predictions)groupMembers[uid].predictions={};
+  if(!groupMembers[uid].predictions[matchId])groupMembers[uid].predictions[matchId]={};
+  groupMembers[uid].predictions[matchId].winner=side;
+  db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
+    .update({[`predictions.${matchId}.winner`]:side}).catch(()=>{});
+  renderTorneo();
+}
+
+function torneoSource(){return torneoMode==='sim'?myPreds():(globalResults||{});}
+
 function renderTorneo(){
   renderStandings();
   renderBracketKO();
@@ -1383,8 +1464,9 @@ function renderTorneo(){
 function renderStandings(){
   const el=document.getElementById('torneo-standings');
   if(!el)return;
+  const pred=torneoSource();
   el.innerHTML=GK.map(g=>{
-    const st=calcStandings(g);
+    const st=calcStandings(g,pred);
     const rows=st.map((s,i)=>{
       const qualClass=i<2?'qual':(i===2?'maybe':'out');
       return`<tr class="${qualClass}">
@@ -1416,34 +1498,47 @@ function renderStandings(){
 function renderBracketKO(){
   const el=document.getElementById('torneo-bracket');
   if(!el)return;
-  const pred=myPreds();
+  const source=torneoSource();
+  const myP=myPreds();
+  const isSimMode=torneoMode==='sim';
   el.innerHTML=KO_ROUNDS.map(round=>{
     const matches=KO_STRUCTURE[round.key];
     const matchesHTML=matches.map(m=>{
-      const home=resolveSlot(m.home);
-      const away=resolveSlot(m.away);
-      const r=globalResults?.[m.id];
-      const hasResult=r&&r.h!==undefined&&r.a!==undefined;
-      const winner=getKOWinner(m.id);
+      const home=resolveSlot(m.home,source);
+      const away=resolveSlot(m.away,source);
+      const r=source[m.id];
+      const hasResult=_validRes(r);
+      const winner=getKOWinner(m.id,source);
       const hCls=winner&&winner.n===home?.n?'w':(hasResult&&!winner?'':(hasResult?'l':''));
       const aCls=winner&&winner.n===away?.n?'w':(hasResult&&!winner?'':(hasResult?'l':''));
       const hLabel=home?`${home.f} ${home.n}`:`<i class="ko-tbd">${slotLabel(m.home)}</i>`;
       const aLabel=away?`${away.f} ${away.n}`:`<i class="ko-tbd">${slotLabel(m.away)}</i>`;
       const isFinal=m.id==='f_1',isTP=m.id.startsWith('tp');
       const label=isFinal?'<div class="ko-m-lbl" style="background:#fff3e0;color:#e65100">🏆 FINAL</div>':(isTP?'<div class="ko-m-lbl">3er puesto</div>':'');
-      const p=pred[m.id]||{};
+      // Input values siempre vienen de mis predicciones (los inputs son MIS picks)
+      const p=myP[m.id]||{};
       const pH=p.h!==undefined&&p.h!==''?p.h:'';
       const pA=p.a!==undefined&&p.a!==''?p.a:'';
+      // Indicador solo en modo Real (comparar mis preds vs realidad)
       let ind='';
-      if(hasResult&&pH!==''&&pA!==''){
-        const po=Math.sign(+pH-(+pA)),ro=Math.sign(r.h-r.a);
-        if(+pH===r.h&&+pA===r.a)ind='<span class="ie">★★★</span>';
+      if(!isSimMode&&hasResult&&pH!==''&&pA!==''){
+        const po=Math.sign(+pH-(+pA)),ro=Math.sign(+r.h-(+r.a));
+        if(+pH===+r.h&&+pA===+r.a)ind='<span class="ie">★★★</span>';
         else if(po===ro)ind='<span class="ir">★</span>';
         else ind='<span class="iw">✗</span>';
       }
-      const scoreReal=hasResult?`<span class="ko-real">[${r.h}-${r.a}]</span>`:'';
+      // En modo Real mostramos el score real; en Sim no hace falta (es el mismo que el input)
+      const scoreReal=(!isSimMode&&hasResult)?`<span class="ko-real">[${r.h}-${r.a}]</span>`:'';
+      // En modo Sim, si mi predicción es empate y los equipos están resueltos, mostrar tie picker
+      const isMyTie=isSimMode&&pH!==''&&pA!==''&&(+pH===+pA);
       const teamsKnown=!!(home&&away);
+      const tiePicker=(isMyTie&&teamsKnown)?`<div class="ko-tie">
+        <span class="ko-tie-lbl">¿Quién pasa?</span>
+        <button class="ko-tie-btn${p.winner==='h'?' sel':''}" onclick="savePredWinner('${m.id}','h')">${home.f} ${home.n}</button>
+        <button class="ko-tie-btn${p.winner==='a'?' sel':''}" onclick="savePredWinner('${m.id}','a')">${away.f} ${away.n}</button>
+      </div>`:'';
       const disabled=teamsKnown?'':'disabled';
+      const onchangeExtra=isSimMode?';renderTorneo()':'';
       const sched=schedShort(m.id);
       return`<div class="ko-m">
         ${label}
@@ -1451,13 +1546,14 @@ function renderBracketKO(){
         <div class="ko-row">
           <div class="ko-side ${hCls}">${hLabel}</div>
           <input class="ko-i${pH!==''?' f':''}" type="number" min="0" max="20" value="${pH}" placeholder="-" ${disabled}
-            onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')">
+            onchange="savePred('${m.id}','h',this.value);this.classList.toggle('f',this.value!=='')${onchangeExtra}">
         </div>
         <div class="ko-row">
           <div class="ko-side ${aCls}">${aLabel}</div>
           <input class="ko-i${pA!==''?' f':''}" type="number" min="0" max="20" value="${pA}" placeholder="-" ${disabled}
-            onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')">
+            onchange="savePred('${m.id}','a',this.value);this.classList.toggle('f',this.value!=='')${onchangeExtra}">
         </div>
+        ${tiePicker}
         <div class="ko-foot">${scoreReal}${ind}</div>
       </div>`;
     }).join('');
