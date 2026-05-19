@@ -284,15 +284,19 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 /* SCHEDULE LABEL */
 .m-sched{font-size:.65rem;color:var(--muted);text-align:center;padding:.1rem .3rem;margin-top:.25rem;background:#fafafa;border-radius:6px;font-weight:600}
 
-/* TORNEO — 2-col grids (mobile = 1 col, tablet+ = 2 col) */
-.t-standings-grid{display:grid;grid-template-columns:1fr;gap:.6rem}
-.ko-matches-grid{display:grid;grid-template-columns:1fr;gap:.4rem}
-@media(min-width:600px){
-  .t-standings-grid{grid-template-columns:repeat(2,1fr)}
-  .ko-matches-grid{grid-template-columns:repeat(2,1fr)}
-}
+/* TORNEO — 2-col grids siempre (incluso mobile). Para pantallas <320px caemos a 1 col. */
+.t-standings-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.ko-matches-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem}
 .ko-matches-grid.solo{grid-template-columns:1fr!important}
 .ko-matches-grid.solo .ko-m{max-width:420px;margin-left:auto;margin-right:auto;width:100%}
+@media(max-width:320px){
+  .t-standings-grid,.ko-matches-grid{grid-template-columns:1fr}
+}
+/* En 2 cols, comprimir tabla para que entre */
+.t-standings-grid .t-tab{font-size:.66rem}
+.t-standings-grid .t-tab thead th{font-size:.6rem;padding:.25rem .12rem}
+.t-standings-grid .t-tab tbody td{padding:.28rem .12rem}
+.t-standings-grid .t-name{font-size:.66rem;line-height:1.15;word-break:break-word}
 
 /* PREDICCIONES — botones +/- en inputs */
 .si-wrap{display:inline-flex;align-items:center;gap:.15rem}
