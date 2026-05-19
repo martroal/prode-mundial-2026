@@ -396,6 +396,15 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .t-mode-btn:hover{background:#f3e5f5}
 .t-mode-btn.sel{background:#6a1b9a;border-color:#6a1b9a;color:#fff;box-shadow:0 1px 3px rgba(106,27,154,.3)}
 .t-mode-help{font-size:.7rem;color:#6a1b9a;margin-top:.45rem;line-height:1.3}
+
+/* PREVIEW BANNER (modo sin login) */
+.preview-banner{display:none;background:linear-gradient(90deg,#f57f17,#e65100);color:#fff;padding:max(.55rem,env(safe-area-inset-top)) max(.75rem,env(safe-area-inset-right)) .55rem max(.75rem,env(safe-area-inset-left));align-items:center;gap:.6rem;font-size:.75rem;font-weight:600;line-height:1.3;border-bottom:2px solid #bf360c}
+body.preview-active .preview-banner{display:flex}
+body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-code{display:none}
+.preview-banner-msg{flex:1;min-width:0}
+.preview-banner-btn{background:#fff;color:#e65100;border:none;padding:.4rem .75rem;border-radius:8px;font-weight:800;font-size:.72rem;cursor:pointer;white-space:nowrap;letter-spacing:.3px}
+.preview-banner-btn:hover{background:#fff8e1}
+.preview-banner-btn:active{transform:scale(.96)}
 </style>
 </head>
 <body>
@@ -460,6 +469,10 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
     <button class="hdr-back" onclick="leavGroup()">← Grupos</button>
     <div class="hdr-title" id="app-title">...</div>
     <button class="hdr-code" id="app-code" onclick="copyCode()" title="Tocá para copiar">📋 ...</button>
+  </div>
+  <div id="preview-banner" class="preview-banner">
+    <span class="preview-banner-msg">🔒 <b>Vista previa</b> — tus picks se guardan en este navegador. Iniciá sesión para sumarte a un grupo y competir.</span>
+    <button class="preview-banner-btn" onclick="signIn()">Iniciar sesión</button>
   </div>
   <nav class="nav" id="app-nav">
     <button class="nb active" data-view="preds"    onclick="nav('preds')">📝 Predicciones</button>
@@ -997,6 +1010,18 @@ let unsubGlobal  = null;
 let curGroup     = 'A';
 let curJornada   = 1;        // jornada activa en modo "por jornada"
 let predsMode    = 'grupo';  // 'grupo' | 'jornada' — cómo agrupar en Predicciones
+let previewMode  = false;    // true cuando no hay user logueado — predicciones a localStorage
+let previewPreds = {};       // cache en memoria de las preds de preview
+const PREVIEW_LS_KEY = 'prode-preview-preds-v1';
+function loadPreviewPreds(){
+  try{return JSON.parse(localStorage.getItem(PREVIEW_LS_KEY)||'{}');}catch(e){return {};}
+}
+function persistPreviewPreds(){
+  try{localStorage.setItem(PREVIEW_LS_KEY,JSON.stringify(previewPreds));}catch(e){}
+}
+function previewPredsCount(){
+  return Object.keys(loadPreviewPreds()).filter(k=>{const v=loadPreviewPreds()[k];return v&&(v.h!==undefined||v.winner)||(typeof v==='string'&&v);}).length;
+}
 let selPhases    = new Set(['groups']);
 let simMode      = false;
 let torneoMode   = 'real';   // 'real' (usa globalResults) | 'sim' (usa myPreds)
@@ -1007,6 +1032,7 @@ let pendingWrites = {};    // debounce map
 auth.onAuthStateChanged(user => {
   if (user) {
     currentUser = user;
+    if (previewMode) exitPreviewMode();
     attachGlobalResults();
     showScreen('dashboard');
     loadMyGroups();
@@ -1014,9 +1040,32 @@ auth.onAuthStateChanged(user => {
     if (unsubGlobal) { unsubGlobal(); unsubGlobal = null; }
     globalResults = {};
     currentUser = null;
-    showScreen('login');
+    enterPreviewMode();
   }
 });
+
+function enterPreviewMode(){
+  previewMode = true;
+  previewPreds = loadPreviewPreds();
+  // Grupo virtual sin Firestore — solo para que las views funcionen
+  currentGroup = {id:'__preview__', name:'Vista previa', code:'DEMO', ownerUid:null};
+  groupMembers = {};
+  curView = 'preds';
+  curGroup = 'A';
+  curJornada = 1;
+  predsMode = 'grupo';
+  document.body.classList.add('preview-active');
+  const titleEl = document.getElementById('app-title');
+  if (titleEl) titleEl.textContent = '👀 Vista previa';
+  attachGlobalResults();
+  showScreen('app');
+  nav('preds');
+}
+
+function exitPreviewMode(){
+  previewMode = false;
+  document.body.classList.remove('preview-active');
+}
 
 function attachGlobalResults(){
   if (unsubGlobal) return;
@@ -1098,6 +1147,22 @@ function openJoin(){
   setTimeout(()=>document.getElementById('mi-code')?.focus(),300);
 }
 
+// Si hay predicciones de preview en localStorage, ofrece migrarlas al grupo recién creado/joined
+async function maybeMigratePreviewPreds(groupId,uid){
+  const preview=loadPreviewPreds();
+  const keys=Object.keys(preview);
+  if(!keys.length)return;
+  const ok=confirm(`Encontramos ${keys.length} pick${keys.length===1?'':'s'} que armaste en modo vista previa. ¿Importarlos a este grupo?`);
+  if(!ok){localStorage.removeItem(PREVIEW_LS_KEY);previewPreds={};return;}
+  try{
+    await db.collection('grupos').doc(groupId).collection('members').doc(uid)
+      .update({predictions:preview});
+    localStorage.removeItem(PREVIEW_LS_KEY);
+    previewPreds={};
+    toast(`✅ ${keys.length} predicciones importadas`);
+  }catch(e){toast('❌ Error importando: '+e.message);}
+}
+
 async function doCreate(){
   const name=document.getElementById('mi-gname')?.value.trim();
   if(!name)return toast('Escribí un nombre');
@@ -1114,6 +1179,7 @@ async function doCreate(){
   batch.set(db.collection('users').doc(currentUser.uid).collection('groups').doc(groupRef.id),
     {name,code,joinedAt:firebase.firestore.FieldValue.serverTimestamp()});
   await batch.commit();
+  await maybeMigratePreviewPreds(groupRef.id,currentUser.uid);
   toast(`✅ Grupo creado · Código: ${code}`);
   loadMyGroups();
   enterGroup(groupRef.id);
@@ -1136,6 +1202,7 @@ async function doJoin(){
   batch.set(db.collection('users').doc(currentUser.uid).collection('groups').doc(groupId),
     {name:gdata.name,code:gdata.code,joinedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   await batch.commit();
+  await maybeMigratePreviewPreds(groupId,currentUser.uid);
   toast(`✅ Te uniste a "${gdata.name}"`);
   loadMyGroups();
   enterGroup(groupId);
@@ -1210,7 +1277,10 @@ function renderCurrentView(){
 }
 
 /* ═══════════════ MY PREDICTIONS ═══════════════ */
-function myPreds(){return groupMembers[currentUser?.uid]?.predictions||{};}
+function myPreds(){
+  if(previewMode)return previewPreds;
+  return groupMembers[currentUser?.uid]?.predictions||{};
+}
 
 /* ═══════════════ PREDICCIONES ═══════════════ */
 function renderGTabs(id,fn){
@@ -1339,6 +1409,12 @@ function bumpPred(matchId,side,delta){
 }
 
 function savePred(matchId,side,val){
+  if(previewMode){
+    if(!previewPreds[matchId])previewPreds[matchId]={};
+    previewPreds[matchId][side]=val===''?'':parseInt(val);
+    persistPreviewPreds();
+    return;
+  }
   if(!currentUser||!currentGroup)return;
   const uid=currentUser.uid;
   // Update local immediately
@@ -1390,6 +1466,12 @@ function renderBracket(){
 }
 
 function saveSpec(key,val){
+  if(previewMode){
+    previewPreds[key]=val;
+    persistPreviewPreds();
+    toast('💾 Guardado (en este navegador)');
+    return;
+  }
   if(!currentUser||!currentGroup)return;
   const uid=currentUser.uid;
   if(!groupMembers[uid])groupMembers[uid]={predictions:{}};
@@ -1438,6 +1520,12 @@ function toggleSim(){
 }
 
 function renderTabla(){
+  if(previewMode){
+    document.getElementById('tabla-c').innerHTML='<div class="empty"><div class="ei">🔒</div><p>Iniciá sesión y unite a un grupo para ver el leaderboard de tus amigos.</p></div>';
+    document.getElementById('compare-c').innerHTML='';
+    const banner=document.getElementById('sim-banner');if(banner)banner.innerHTML='';
+    return;
+  }
   const hasSim=Object.keys(currentGroup?.simResults||{}).length>0;
   const banner=document.getElementById('sim-banner');
   if(banner)banner.innerHTML=hasSim?`<div class="sim-banner">
@@ -1497,6 +1585,10 @@ function renderTabla(){
 /* ═══════════════ PERFILES ═══════════════ */
 function renderPerfiles(){
   const el=document.getElementById('perfiles-c');
+  if(previewMode){
+    el.innerHTML='<div class="empty"><div class="ei">🔒</div><p>Iniciá sesión y unite a un grupo para ver los participantes.</p></div>';
+    return;
+  }
   const uids=Object.keys(groupMembers);
   if(!uids.length){el.innerHTML='<p style="color:var(--muted);font-size:.83rem">Sin jugadores aún.</p>';return;}
   el.innerHTML=uids.map(uid=>{
@@ -1615,6 +1707,13 @@ function setTorneoMode(mode){
 }
 
 function savePredWinner(matchId,side){
+  if(previewMode){
+    if(!previewPreds[matchId])previewPreds[matchId]={};
+    previewPreds[matchId].winner=side;
+    persistPreviewPreds();
+    renderTorneo();
+    return;
+  }
   if(!currentUser||!currentGroup)return;
   const uid=currentUser.uid;
   if(!groupMembers[uid])groupMembers[uid]={predictions:{}};
