@@ -910,17 +910,28 @@ function assignBest3rds(pred){
   });
   return assignment;
 }
+function isGroupComplete(g,pred){
+  const gm=MATCHES.filter(m=>m.group===g);
+  return gm.every(m=>_validRes(pred[m.id]));
+}
+function isGroupStageComplete(pred){
+  return MATCHES.every(m=>_validRes(pred[m.id]));
+}
 function resolveSlot(slot,pred){
   pred=pred||globalResults||{};
   if(!slot)return null;
   if(slot.startsWith('W_'))return getKOWinner(slot.slice(2),pred);
   if(slot.startsWith('L_'))return getKOLoser(slot.slice(2),pred);
   if(slot[0]==='1'||slot[0]==='2'){
-    const pos=parseInt(slot[0])-1;
     const g=slot.slice(1);
+    // Solo resolver cuando el grupo tiene todos sus 6 partidos cargados
+    if(!isGroupComplete(g,pred))return null;
+    const pos=parseInt(slot[0])-1;
     return calcStandings(g,pred)[pos]?.team||null;
   }
   if(slot[0]==='3'){
+    // Los 8 mejores 3ros requieren los 12 grupos finalizados
+    if(!isGroupStageComplete(pred))return null;
     return assignBest3rds(pred)[slot]||null;
   }
   return null;
