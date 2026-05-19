@@ -1111,6 +1111,13 @@ function nav(v){
 }
 function renderCurrentView(){
   if(!currentGroup)return;
+  // Skip re-render if user is actively typing in the current view
+  // (evita que el listener de Firestore destruya el input que estás usando)
+  const active=document.activeElement;
+  if(active&&active.tagName==='INPUT'){
+    const viewEl=document.getElementById('view-'+curView);
+    if(viewEl&&viewEl.contains(active))return;
+  }
   ({preds:renderPreds,torneo:renderTorneo,bracket:renderBracket,tabla:renderTabla,
     perfiles:renderPerfiles,admin:renderAdmin})[curView]?.();
 }
