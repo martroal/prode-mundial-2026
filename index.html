@@ -542,7 +542,7 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
   <div class="view active" id="view-preds">
     <div class="stabs" id="preds-mode-tabs">
       <button class="st active" id="pm-grupo" onclick="setPredsMode('grupo')">📁 Por grupo</button>
-      <button class="st" id="pm-jornada" onclick="setPredsMode('jornada')">📅 Por jornada</button>
+      <button class="st" id="pm-dia" onclick="setPredsMode('dia')">📅 Por día</button>
     </div>
     <div class="stabs" id="gtabs"></div>
     <div id="preds-c"></div>
@@ -1066,8 +1066,8 @@ let unsubGroup   = null;
 let unsubMembers = null;
 let unsubGlobal  = null;
 let curGroup     = 'A';
-let curJornada   = 1;        // jornada activa en modo "por jornada"
-let predsMode    = 'grupo';  // 'grupo' | 'jornada' — cómo agrupar en Predicciones
+let curDia       = 0;        // índice del día activo en modo "por día" (0 = primer día del fase de grupos)
+let predsMode    = 'grupo';  // 'grupo' | 'dia' — cómo agrupar en Predicciones
 let previewMode  = false;    // true cuando no hay user logueado — predicciones a localStorage
 let previewPreds = {};       // cache en memoria de las preds de preview
 const PREVIEW_LS_KEY = 'prode-preview-preds-v1';
@@ -1359,12 +1359,30 @@ function matchDateTime(matchId){
   return new Date(2026,month,day,hh||0,mm||0);
 }
 
-// Tabs de selector dentro de Predicciones (G.A..G.L o J1/J2/J3 según predsMode)
+// Días del fase de grupos (orden cronológico) — usado como tabs en modo "por día"
+function groupStageDays(){
+  return SCHEDULE_RAW.filter(d=>d.matches.some(m=>m.group)).map(d=>d.date);
+}
+// "Jueves 11 de Junio" → "Jue 11"
+function dayShortLabel(dateStr){
+  const parts=dateStr.split(' ');
+  return `${parts[0].slice(0,3)} ${parts[1]}`;
+}
+// Partidos de un día específico (ordenados por hora), usando mi MATCHES + SCHEDULE_MAP
+function matchesForDay(dateStr){
+  return MATCHES.filter(m=>SCHEDULE_MAP[m.id]?.date===dateStr)
+    .sort((a,b)=>(SCHEDULE_MAP[a.id]?.time||'').localeCompare(SCHEDULE_MAP[b.id]?.time||''));
+}
+
+// Tabs de selector dentro de Predicciones (G.A..G.L o un tab por día según predsMode)
 function renderPredsSelectorTabs(){
   const el=document.getElementById('gtabs');
   if(!el)return;
-  if(predsMode==='jornada'){
-    el.innerHTML=[1,2,3].map(j=>`<button class="st${j===curJornada?' active':''}" onclick="setJornada(${j})">J${j}</button>`).join('');
+  if(predsMode==='dia'){
+    const days=groupStageDays();
+    el.innerHTML=days.map((d,i)=>`<button class="st${i===curDia?' active':''}" onclick="setDia(${i})">${dayShortLabel(d)}</button>`).join('');
+    // Auto-scroll a la tab activa para que sea visible
+    setTimeout(()=>{const a=el.querySelector('.st.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},50);
   }else{
     el.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="setGroup('${g}')">G.${g}</button>`).join('');
   }
@@ -1422,19 +1440,17 @@ function renderPreds(){
     });
     html+='</div>';
   }else{
-    // Modo "por jornada": todos los partidos de curJornada ordenados por fecha+hora
-    const jm=MATCHES.filter(m=>m.jornada===curJornada)
-      .sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
+    // Modo "por día": partidos de un día específico ordenados por hora
+    const days=groupStageDays();
+    if(curDia>=days.length)curDia=0;
+    const dateStr=days[curDia]||days[0];
+    const jm=matchesForDay(dateStr);
     html='<div class="card">';
-    html+=`<div class="ch">📅 Jornada ${curJornada} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} partidos · orden cronológico)</span></div>`;
-    let lastDate=null;
+    html+=`<div class="ch">📅 ${dateStr} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} ${jm.length===1?'partido':'partidos'} · día ${curDia+1}/${days.length})</span></div>`;
     jm.forEach(m=>{
       const s=SCHEDULE_MAP[m.id];
-      if(s&&s.date!==lastDate){
-        lastDate=s.date;
-        html+=`<div class="jl">${s.date}</div>`;
-      }
-      html+=`<div style="font-size:.65rem;color:var(--muted);text-align:center;padding:.1rem 0;font-weight:700"><span class="gbadge">${m.group}</span></div>`;
+      const meta=s?`${s.time}hs · ${s.venue}`:'';
+      html+=`<div style="font-size:.7rem;color:var(--muted);font-weight:700;padding:.3rem 0 .15rem;display:flex;align-items:center;gap:.35rem"><span class="gbadge">${m.group}</span><span>J${m.jornada}</span>${meta?`<span style="margin-left:auto;font-weight:500">⏰ ${meta}</span>`:''}</div>`;
       html+=predMatchRowHTML(m,pred);
     });
     html+='</div>';
@@ -1443,14 +1459,29 @@ function renderPreds(){
   el.innerHTML=html;
 }
 
+// "Jueves 11 de Junio" → Date(2026, mes, día)
+function parseDayString(dateStr){
+  const parts=dateStr.split(' de ');
+  const month=parts[1]==='Julio'?6:5; // 0-indexed: Junio=5
+  const day=parseInt(parts[0].split(' ').slice(-1)[0])||1;
+  return new Date(2026,month,day);
+}
+
 function setGroup(g){curGroup=g;renderPreds();}
-function setJornada(j){curJornada=j;renderPreds();}
+function setDia(i){curDia=i;renderPreds();}
 function setPredsMode(mode){
   predsMode=mode;
   const g=document.getElementById('pm-grupo');
-  const j=document.getElementById('pm-jornada');
+  const d=document.getElementById('pm-dia');
   if(g)g.classList.toggle('active',mode==='grupo');
-  if(j)j.classList.toggle('active',mode==='jornada');
+  if(d)d.classList.toggle('active',mode==='dia');
+  // Default al entrar a "día": hoy (si está en rango del fase de grupos), sino el primer día
+  if(mode==='dia'){
+    const days=groupStageDays();
+    const todayStr=new Date().toDateString();
+    const todayIdx=days.findIndex(d=>parseDayString(d).toDateString()===todayStr);
+    if(todayIdx>=0)curDia=todayIdx;
+  }
   renderPreds();
 }
 
