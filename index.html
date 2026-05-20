@@ -412,6 +412,27 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .preview-login-card p{color:var(--muted);font-size:.78rem;margin-bottom:.7rem;line-height:1.4}
 .preview-note{background:#fff3e0;color:#bf360c;padding:.55rem .7rem;border-radius:9px;font-size:.72rem;font-weight:600;line-height:1.35;margin:.5rem 0 1rem;border:1px solid #ffcc80}
 .preview-login-card .google-btn{font-size:.88rem}
+
+/* INFO FOOTER (FAQ/Privacidad/Acerca) */
+.info-footer{display:block;width:100%;background:transparent;border:none;color:var(--muted);font-size:.7rem;font-weight:500;text-align:center;padding:1.5rem 1rem max(1.5rem,calc(env(safe-area-inset-bottom) + 1rem));margin-top:1rem;cursor:pointer;letter-spacing:.2px;border-top:1px solid var(--border)}
+.info-footer:hover{color:var(--p)}
+.info-footer:active{opacity:.7}
+
+/* INFO MODAL */
+.info-h{font-size:1.15rem;font-weight:900;color:var(--p);margin:0}
+.info-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);padding:.25rem .5rem;line-height:1}
+.info-sec{margin-bottom:1.3rem}
+.info-sec h3{font-size:.95rem;color:var(--p);margin-bottom:.6rem;font-weight:800}
+.info-sec details{margin-bottom:.4rem;padding:.55rem .7rem;background:#f5f5fa;border-radius:8px;border:1px solid #e8e8f0}
+.info-sec details[open]{background:#ede7f6}
+.info-sec summary{font-weight:700;font-size:.82rem;cursor:pointer;color:#333;list-style:none;display:flex;align-items:center;gap:.3rem}
+.info-sec summary::-webkit-details-marker{display:none}
+.info-sec summary::before{content:'›';font-size:1.1rem;font-weight:900;color:var(--p);display:inline-block;transition:transform .15s}
+.info-sec details[open] summary::before{transform:rotate(90deg)}
+.info-sec details p{font-size:.78rem;color:#555;margin-top:.5rem;line-height:1.55}
+.info-block{background:#f5f5fa;padding:.85rem;border-radius:9px;font-size:.78rem;color:#444;line-height:1.6;border:1px solid #e8e8f0}
+.info-block b{color:var(--p)}
+.info-block a{color:var(--p);font-weight:600}
 </style>
 </head>
 <body>
@@ -596,6 +617,8 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
       <button class="btn br bblock" onclick="resetResults()">🗑️ Borrar todos los resultados</button>
     </div>
   </div>
+
+  <button class="info-footer" onclick="openInfoModal()">ℹ️ Preguntas frecuentes · Privacidad · Acerca</button>
 </div>
 
 <!-- MODAL INPUT (crear/unirse) -->
@@ -1711,6 +1734,61 @@ function showProfile(uid){
   document.getElementById('mo').classList.add('open');
 }
 function closeMO(){document.getElementById('mo').classList.remove('open');}
+
+function openInfoModal(){
+  document.getElementById('mo-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:2px solid var(--border)">
+      <h2 class="info-h">ℹ️ Info & Ayuda</h2>
+      <button class="info-x" onclick="closeMO()">✕</button>
+    </div>
+
+    <div class="info-sec">
+      <h3>📌 Preguntas frecuentes</h3>
+      <details><summary>¿Es gratis?</summary>
+        <p>Sí. La app corre sobre Firebase con plan gratuito. No hay publicidad, no se venden datos, no hay funciones premium.</p>
+      </details>
+      <details><summary>¿Necesito iniciar sesión?</summary>
+        <p>Para predecir y competir en un grupo con amigos, sí — login con Google. Sin login podés ver el fixture, armar tus picks y se guardan en este navegador. Al loguearte después podés importarlos a un grupo.</p>
+      </details>
+      <details><summary>¿Cómo se calculan los puntos?</summary>
+        <p><b>3 pts</b> · predicción exacta del marcador (predijiste 2-1 y fue 2-1).<br><b>1 pt</b> · acertaste el resultado (gana/empata/pierde) pero no el marcador.<br><b>Bonus</b> · +5 al campeón, +3 al subcampeón, +2 al 3er puesto, +2 por cada ganador de grupo.</p>
+      </details>
+      <details><summary>¿Cómo creo un grupo?</summary>
+        <p>En el dashboard tocás <b>➕ Crear grupo</b>, le ponés un nombre. Te genera un código de 6 letras para compartir con amigos.</p>
+      </details>
+      <details><summary>¿Cómo me uno a un grupo?</summary>
+        <p>Tocás <b>🔑 Unirse</b> y pegás el código de 6 letras que te pasaron.</p>
+      </details>
+      <details><summary>¿Quién carga los resultados reales del Mundial?</summary>
+        <p>Solo el admin del torneo. Los miembros del grupo solo predicen — los puntos se calculan automáticamente comparando tu pick con el resultado cargado.</p>
+      </details>
+      <details><summary>¿Puedo simular el torneo sin esperar al Mundial?</summary>
+        <p>Sí. En el tab Torneo hay un toggle <b>📊 Real</b> ⟷ <b>🎲 Mi simulación</b>. En "Mi simulación" el bracket se llena con tus predicciones como si fueran resultados.</p>
+      </details>
+    </div>
+
+    <div class="info-sec">
+      <h3>🔒 Privacidad y datos</h3>
+      <div class="info-block">
+        <b>Qué guardamos:</b> nombre, email y foto de tu cuenta Google · las predicciones que hacés · los grupos en los que estás. Nada más. No hay analytics de terceros, ni tracking, ni Facebook Pixel, ni nada similar.<br><br>
+        <b>Dónde:</b> Firebase Firestore (Google Cloud).<br><br>
+        <b>Quién puede ver tus picks:</b> únicamente los otros miembros del mismo grupo, desde la app.<br><br>
+        <b>Modo vista previa:</b> sin login, tus picks se guardan en <code>localStorage</code> de tu navegador. Si borrás cache o datos del sitio, se pierden. Nunca salen de tu dispositivo.<br><br>
+        <b>Borrar mi cuenta y datos:</b> escribime al GitHub <a href="https://github.com/martroal" target="_blank" rel="noopener">martroal</a> y borro todo en menos de 48hs.
+      </div>
+    </div>
+
+    <div class="info-sec" style="margin-bottom:.5rem">
+      <h3>👋 Acerca</h3>
+      <div class="info-block">
+        Prode armado por <b>martroal</b> (Marcel) en mayo 2026 para jugar con amigos sin tener que bajarse apps con publicidad. Sin fines de lucro, sin tracking, sin garantías — úsalo bajo tu propio riesgo 🙂.<br><br>
+        🛠️ <b>Stack:</b> HTML + JS vanilla + Firebase + GitHub Pages.<br>
+        📦 <b>Código abierto:</b> <a href="https://github.com/martroal/prode-mundial-2026" target="_blank" rel="noopener">github.com/martroal/prode-mundial-2026</a>
+      </div>
+    </div>
+  `;
+  document.getElementById('mo').classList.add('open');
+}
 
 /* ═══════════════ TORNEO (standings + bracket KO) ═══════════════ */
 function setTorneoMode(mode){
