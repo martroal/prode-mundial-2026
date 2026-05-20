@@ -433,6 +433,21 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .info-block{background:#f5f5fa;padding:.85rem;border-radius:9px;font-size:.78rem;color:#444;line-height:1.6;border:1px solid #e8e8f0}
 .info-block b{color:var(--p)}
 .info-block a{color:var(--p);font-weight:600}
+
+/* CALENDARIO en info modal */
+.cal-d{margin-bottom:.35rem;padding:.45rem .6rem;background:#f5f5fa;border-radius:7px;border:1px solid #e8e8f0}
+.cal-d[open]{background:#ede7f6}
+.cal-d summary{font-weight:700;font-size:.78rem;cursor:pointer;color:#333;list-style:none;display:flex;align-items:center;gap:.3rem}
+.cal-d summary::-webkit-details-marker{display:none}
+.cal-d summary::before{content:'›';font-size:1.1rem;font-weight:900;color:var(--p);display:inline-block;transition:transform .15s;width:14px}
+.cal-d[open] summary::before{transform:rotate(90deg)}
+.cal-d-c{font-size:.66rem;color:var(--muted);font-weight:600;margin-left:auto;background:#fff;padding:.12rem .45rem;border-radius:10px}
+.cal-list{padding:.5rem 0 .2rem;display:flex;flex-direction:column;gap:.3rem}
+.cal-m{padding:.4rem .55rem;background:#fff;border-radius:6px;border:1px solid #f0f0f5;font-size:.72rem;line-height:1.4}
+.cal-m .cal-t{font-weight:800;color:var(--p);margin-right:.4rem;font-size:.74rem}
+.cal-m .cal-vs{font-weight:700;color:#333}
+.cal-m .cal-v{display:block;font-size:.66rem;color:var(--muted);margin-top:.2rem;font-weight:500}
+.cal-stage{display:inline-block;font-size:.6rem;font-weight:800;background:#f9a825;color:#1a237e;padding:.05rem .35rem;border-radius:4px;margin-left:.3rem;letter-spacing:.3px;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -1735,6 +1750,48 @@ function showProfile(uid){
 }
 function closeMO(){document.getElementById('mo').classList.remove('open');}
 
+// Helper: convierte nombre del schedule (remix22) a "flag + nombre corto" usando ALL_TEAMS
+function teamWithFlag(remixName){
+  const myName=TEAM_NAME_MAP[remixName]||remixName;
+  const t=ALL_TEAMS.find(x=>x.n===myName);
+  return t?`${t.f} ${t.n}`:remixName;
+}
+
+function stageLabel(s){
+  return s==='r32'?'Dieciseisavos':s==='r16'?'Octavos':s==='qf'?'Cuartos':s==='sf'?'Semis':s==='tp'?'3er puesto':s==='f'?'FINAL':s;
+}
+
+function renderCalendarSection(){
+  const days=SCHEDULE_RAW.map(day=>{
+    const items=day.matches.map(m=>{
+      if(m.group){
+        const home=teamWithFlag(m.teams[0]),away=teamWithFlag(m.teams[1]);
+        return`<div class="cal-m">
+          <span class="cal-t">${m.time}</span><span class="cal-vs">${home} <span style="color:var(--muted)">vs</span> ${away}</span><span class="cal-stage">G.${m.group}</span>
+          <span class="cal-v">📍 ${m.venue}</span>
+        </div>`;
+      }else{
+        const myId=KO_REMIX_ID_MAP[m.id];
+        const def=myId?KO_MATCHES.find(k=>k.id===myId):null;
+        const home=def?slotLabel(def.home):'?',away=def?slotLabel(def.away):'?';
+        return`<div class="cal-m">
+          <span class="cal-t">${m.time}</span><span class="cal-vs">${home} <span style="color:var(--muted)">vs</span> ${away}</span><span class="cal-stage">${stageLabel(m.stage)}</span>
+          <span class="cal-v">📍 ${m.venue}</span>
+        </div>`;
+      }
+    }).join('');
+    return`<details class="cal-d">
+      <summary>${day.date}<span class="cal-d-c">${day.matches.length} ${day.matches.length===1?'partido':'partidos'}</span></summary>
+      <div class="cal-list">${items}</div>
+    </details>`;
+  }).join('');
+  return`<div class="info-sec">
+    <h3>🗓️ Calendario del Mundial</h3>
+    <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem;line-height:1.4">104 partidos · 16 sedes (USA · México · Canadá) · 11 jun – 19 jul. Tocá un día para ver los partidos.</div>
+    ${days}
+  </div>`;
+}
+
 function openInfoModal(){
   document.getElementById('mo-content').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:2px solid var(--border)">
@@ -1766,6 +1823,8 @@ function openInfoModal(){
         <p>Sí. En el tab Torneo hay un toggle <b>📊 Real</b> ⟷ <b>🎲 Mi simulación</b>. En "Mi simulación" el bracket se llena con tus predicciones como si fueran resultados.</p>
       </details>
     </div>
+
+    ${renderCalendarSection()}
 
     <div class="info-sec">
       <h3>🔒 Privacidad y datos</h3>
