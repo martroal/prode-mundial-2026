@@ -1761,6 +1761,74 @@ function stageLabel(s){
   return s==='r32'?'Dieciseisavos':s==='r16'?'Octavos':s==='qf'?'Cuartos':s==='sf'?'Semis':s==='tp'?'3er puesto':s==='f'?'FINAL':s;
 }
 
+// Sede → ciudad + código de país (ISO 3166-1 alpha-2) para JSON-LD SportsEvent
+const VENUE_INFO={
+  'Ciudad de México':{c:'Ciudad de México',cc:'MX'},
+  'Guadalajara':{c:'Guadalajara',cc:'MX'},
+  'Monterrey':{c:'Monterrey',cc:'MX'},
+  'Toronto':{c:'Toronto',cc:'CA'},
+  'BC Place Vancouver':{c:'Vancouver',cc:'CA'},
+  'Boston':{c:'Boston',cc:'US'},
+  'Nueva York Nueva Jersey':{c:'East Rutherford',cc:'US'},
+  'Filadelfia':{c:'Philadelphia',cc:'US'},
+  'Atlanta':{c:'Atlanta',cc:'US'},
+  'Miami':{c:'Miami',cc:'US'},
+  'Bahía de San Francisco':{c:'Santa Clara',cc:'US'},
+  'Los Ángeles':{c:'Los Angeles',cc:'US'},
+  'Seattle':{c:'Seattle',cc:'US'},
+  'Houston':{c:'Houston',cc:'US'},
+  'Dallas':{c:'Arlington',cc:'US'},
+  'Kansas City':{c:'Kansas City',cc:'US'}
+};
+
+// Construye ISO 8601 con offset Mexico City (-06:00) — los crawlers entienden esto sin problema
+function matchStartIso(dayStr,timeStr){
+  const parts=dayStr.split(' de ');
+  const month=(parts[1]==='Julio')?'07':'06';
+  const day=String(parseInt(parts[0].split(' ').slice(-1)[0])||1).padStart(2,'0');
+  return `2026-${month}-${day}T${timeStr||'00:00'}:00-06:00`;
+}
+
+// Genera JSON-LD SportsEvent para los 104 partidos (B-SEO) y lo inyecta en head
+function injectMatchEventsLd(){
+  const events=[];
+  SCHEDULE_RAW.forEach(day=>{
+    day.matches.forEach(m=>{
+      const v=VENUE_INFO[m.venue]||{c:m.venue,cc:'US'};
+      const ev={
+        '@type':'SportsEvent',
+        'startDate':matchStartIso(day.date,m.time),
+        'sport':'Soccer',
+        'eventStatus':'https://schema.org/EventScheduled',
+        'eventAttendanceMode':'https://schema.org/OfflineEventAttendanceMode',
+        'location':{
+          '@type':'Place',
+          'name':`Estadio ${m.venue}`,
+          'address':{'@type':'PostalAddress','addressLocality':v.c,'addressCountry':v.cc}
+        },
+        'organizer':{'@type':'Organization','name':'FIFA','url':'https://www.fifa.com'},
+        'superEvent':{'@type':'SportsEvent','name':'Copa Mundial de la FIFA 2026','startDate':'2026-06-11','endDate':'2026-07-19'}
+      };
+      if(m.group){
+        ev.name=`${m.teams[0]} vs ${m.teams[1]} · Grupo ${m.group} · Mundial 2026`;
+        ev.competitor=[
+          {'@type':'SportsTeam','name':m.teams[0]},
+          {'@type':'SportsTeam','name':m.teams[1]}
+        ];
+      }else{
+        ev.name=`${stageLabel(m.stage)} · Mundial 2026 (P${m.id})`;
+      }
+      events.push(ev);
+    });
+  });
+  const ld={'@context':'https://schema.org','@graph':events};
+  const tag=document.createElement('script');
+  tag.type='application/ld+json';
+  tag.textContent=JSON.stringify(ld);
+  document.head.appendChild(tag);
+}
+injectMatchEventsLd();
+
 function renderCalendarSection(){
   const days=SCHEDULE_RAW.map(day=>{
     const items=day.matches.map(m=>{
@@ -1787,7 +1855,7 @@ function renderCalendarSection(){
   }).join('');
   return`<div class="info-sec">
     <h3>🗓️ Calendario del Mundial</h3>
-    <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem;line-height:1.4">104 partidos · 16 sedes (USA · México · Canadá) · 11 jun – 19 jul. Tocá un día para ver los partidos.</div>
+    <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem;line-height:1.4">104 partidos · 16 sedes (USA · México · Canadá) · 11 jun – 19 jul. Tocá un día para ver los partidos. <a href="calendario.html" style="color:var(--p);font-weight:700;text-decoration:none">📄 Abrir en página completa →</a></div>
     ${days}
   </div>`;
 }
