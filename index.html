@@ -519,7 +519,7 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
     <button class="nb"        data-view="torneo"   onclick="nav('torneo')">🏆 Torneo</button>
     <button class="nb"        data-view="bracket"  onclick="nav('bracket')">🏆 Campeón</button>
     <button class="nb"        data-view="tabla"    onclick="nav('tabla')">🏅 Tabla</button>
-    <button class="nb"        data-view="perfiles" onclick="nav('perfiles')">👥 Perfiles</button>
+    <button class="nb"        data-view="horarios" onclick="nav('horarios')">📅 Horarios</button>
     <button class="nb"        data-view="admin"    id="admin-tab" style="display:none" onclick="nav('admin')">⚙️ Admin</button>
   </nav>
 
@@ -585,8 +585,8 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
     <div class="card" style="padding:.5rem"><div id="tabla-c"></div></div>
     <div class="card"><div class="ch">🔍 Comparar</div><div id="compare-c"></div></div>
   </div>
-  <div class="view" id="view-perfiles">
-    <div class="card"><div class="ch">👥 Jugadores del grupo</div><div id="perfiles-c"></div></div>
+  <div class="view" id="view-horarios">
+    <div id="horarios-c"></div>
   </div>
   <div class="view" id="view-admin">
     <!-- Simulator -->
@@ -1331,7 +1331,7 @@ function renderCurrentView(){
     if(viewEl&&viewEl.contains(active))return;
   }
   ({preds:renderPreds,torneo:renderTorneo,bracket:renderBracket,tabla:renderTabla,
-    perfiles:renderPerfiles,admin:renderAdmin})[curView]?.();
+    horarios:renderHorarios,admin:renderAdmin})[curView]?.();
 }
 
 /* ═══════════════ MY PREDICTIONS ═══════════════ */
@@ -1595,10 +1595,11 @@ function renderTabla(){
   const uids=Object.keys(groupMembers);
   if(!uids.length){document.getElementById('tabla-c').innerHTML='<p style="color:var(--muted);font-size:.83rem;padding:.5rem">Sin jugadores aún.</p>';return;}
   const scores=uids.map(uid=>({uid,...score(uid,simMode),
+    preds:predsCount(uid),
     name:groupMembers[uid].displayName,
     photo:groupMembers[uid].photoURL,
     isBot:groupMembers[uid].isBot}))
-    .sort((a,b)=>b.total-a.total);
+    .sort((a,b)=>b.total-a.total||b.preds-a.preds);
   const rclr=['rk1','rk2','rk3'];
   document.getElementById('tabla-c').innerHTML=scores.map((s,i)=>{
     const isMe=s.uid===currentUser?.uid&&!s.isBot;
@@ -1614,7 +1615,7 @@ function renderTabla(){
         ${isMe?'<span class="tag tag-you">vos</span>':''}
       </div>
       <div><div class="ptb${simMode?' sim':''}">${s.total} pts</div>
-        <div class="ptd">${s.exact}×exa · ${s.r}×res · ${s.bonus} bon</div></div>
+        <div class="ptd"><b>${s.preds}/72</b> preds · ${s.exact}×exa · ${s.r}×res</div></div>
     </div>`;
   }).join('');
 
@@ -1640,38 +1641,13 @@ function renderTabla(){
   }).join('');
 }
 
-/* ═══════════════ PERFILES ═══════════════ */
-function renderPerfiles(){
-  const el=document.getElementById('perfiles-c');
-  if(previewMode){
-    el.innerHTML='<div class="empty"><div class="ei">🔒</div><p>Iniciá sesión y unite a un grupo para ver los participantes.</p></div>';
-    return;
-  }
-  const uids=Object.keys(groupMembers);
-  if(!uids.length){el.innerHTML='<p style="color:var(--muted);font-size:.83rem">Sin jugadores aún.</p>';return;}
-  el.innerHTML=uids.map(uid=>{
-    const m=groupMembers[uid],sc=score(uid);
-    const isBot=m.isBot,isOwner=uid===currentGroup?.ownerUid&&!isBot,isMe=uid===currentUser?.uid&&!isBot;
-    const pred=m.predictions||{};
-    const champ=pred.champion?`${ALL_TEAMS.find(t=>t.n===pred.champion)?.f||''}  ${pred.champion}`:'Sin elegir';
-    const filled=MATCHES.filter(mm=>{const p=pred[mm.id];return p&&p.h!==undefined&&p.h!==''}).length;
-    const color=avatarColor(m.displayName);
-    const photo=m.photoURL&&!isBot?`<img class="avatar" src="${m.photoURL}" alt="">`
-      :`<div class="avatar-ph" style="background:${color}">${isBot?'🤖':m.displayName[0].toUpperCase()}</div>`;
-    return`<div class="pg-item" onclick="showProfile('${esc(uid)}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">
-      ${photo}
-      <div style="flex:1">
-        <div style="font-weight:800;font-size:.88rem;display:flex;align-items:center;gap:.3rem">
-          ${m.displayName}
-          ${isOwner?'<span class="tag tag-owner">👑</span>':''}
-          ${isBot?'<span class="tag tag-bot">BOT</span>':''}
-          ${isMe?'<span class="tag tag-you">vos</span>':''}
-        </div>
-        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">🏆 ${champ} · ${filled}/${MATCHES.length} pred.</div>
-      </div>
-      <div style="text-align:right"><div style="font-size:1.3rem;font-weight:900;color:${color}">${sc.total}</div><div style="font-size:.65rem;color:var(--muted)">puntos</div></div>
-    </div>`;
-  }).join('');
+/* Helper: cantidad de partidos de fase de grupos predichos por un user */
+function predsCount(uid){
+  const pred=groupMembers[uid]?.predictions||{};
+  return MATCHES.filter(m=>{
+    const p=pred[m.id];
+    return p&&p.h!==undefined&&p.h!==''&&p.a!==undefined&&p.a!=='';
+  }).length;
 }
 
 /* ═══════════════ PROFILE MODAL ═══════════════ */
@@ -1829,8 +1805,8 @@ function injectMatchEventsLd(){
 }
 injectMatchEventsLd();
 
-function renderCalendarSection(){
-  const days=SCHEDULE_RAW.map(day=>{
+function _calendarDaysHTML(){
+  return SCHEDULE_RAW.map(day=>{
     const items=day.matches.map(m=>{
       if(m.group){
         const home=teamWithFlag(m.teams[0]),away=teamWithFlag(m.teams[1]);
@@ -1853,10 +1829,23 @@ function renderCalendarSection(){
       <div class="cal-list">${items}</div>
     </details>`;
   }).join('');
+}
+
+function renderCalendarSection(){
   return`<div class="info-sec">
     <h3>🗓️ Calendario del Mundial</h3>
     <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem;line-height:1.4">104 partidos · 16 sedes (USA · México · Canadá) · 11 jun – 19 jul. Tocá un día para ver los partidos. <a href="calendario.html" style="color:var(--p);font-weight:700;text-decoration:none">📄 Abrir en página completa →</a></div>
-    ${days}
+    ${_calendarDaysHTML()}
+  </div>`;
+}
+
+function renderHorarios(){
+  const el=document.getElementById('horarios-c');
+  if(!el)return;
+  el.innerHTML=`<div class="card">
+    <div class="ch">📅 Calendario del Mundial <span style="font-size:.7rem;color:var(--muted);font-weight:600">(tocá un día para expandir)</span></div>
+    <div style="font-size:.74rem;color:var(--muted);margin-bottom:.7rem;line-height:1.45">104 partidos · 16 sedes en USA, México y Canadá · 11 jun – 19 jul. <a href="calendario.html" style="color:var(--p);font-weight:700;text-decoration:none">📄 Abrir en página completa →</a></div>
+    ${_calendarDaysHTML()}
   </div>`;
 }
 
