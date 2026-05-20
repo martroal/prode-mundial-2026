@@ -8,6 +8,14 @@
 <!-- SEO -->
 <meta name="description" content="Prode colaborativo de la Copa del Mundo 2026 — armá grupos con amigos, predecí cada partido y mirá tu bracket llenarse en tiempo real.">
 <meta name="author" content="martroal">
+<meta name="robots" content="index, follow">
+<meta name="application-name" content="Prode 26">
+<link rel="canonical" href="https://martroal.github.io/prode-mundial-2026/">
+
+<!-- Preconnect (Firebase) — adelanta el handshake TLS para mejor LCP -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -43,42 +51,38 @@
 <meta name="twitter:description" content="Prode colaborativo del Mundial 2026 — armá grupos con amigos y predecí cada partido.">
 <meta name="twitter:image" content="https://martroal.github.io/prode-mundial-2026/icon-512.png">
 <meta name="twitter:image:alt" content="Logo Prode Mundial 2026">
-<!--
-╔══════════════════════════════════════════════════════════════════╗
-║          PRODE MUNDIAL 2026  ·  GUÍA DE CONFIGURACIÓN           ║
-╠══════════════════════════════════════════════════════════════════╣
-║  PASO 1 – Crear proyecto Firebase (gratis)                       ║
-║    → console.firebase.google.com → "Crear proyecto"              ║
-║                                                                  ║
-║  PASO 2 – Habilitar Google Auth                                  ║
-║    → Authentication → Método de acceso → Google → Habilitar     ║
-║    → Authorized domains → Agregar "localhost"                    ║
-║                                                                  ║
-║  PASO 3 – Crear base de datos Firestore                          ║
-║    → Firestore Database → Crear base de datos → Modo de prueba   ║
-║                                                                  ║
-║  PASO 4 – Copiar credenciales                                    ║
-║    → Configuración del proyecto → Tus apps → Web                 ║
-║    → Reemplazá los valores en FIREBASE_CONFIG abajo              ║
-║                                                                  ║
-║  PASO 5 – Reglas de Firestore                                    ║
-║    → Firestore → Reglas → Publicar estas reglas:                 ║
-║                                                                  ║
-║  rules_version = '2';                                            ║
-║  service cloud.firestore {                                       ║
-║    match /databases/{database}/documents {                       ║
-║      match /{document=**} {                                      ║
-║        allow read, write: if request.auth != null;               ║
-║      }                                                           ║
-║    }                                                             ║
-║  }                                                               ║
-║                                                                  ║
-║  PASO 6 – Correr localmente                                      ║
-║    cd carpeta-del-archivo                                        ║
-║    python3 -m http.server 3000                                   ║
-║    Abrir: http://localhost:3000/prode_mundial_2026.html          ║
-╚══════════════════════════════════════════════════════════════════╝
--->
+
+<!-- JSON-LD: estructura para Google entienda que es una web app sobre el Mundial 2026 -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Prode Mundial 2026",
+  "alternateName": "Prode 26",
+  "description": "Prode colaborativo de la Copa del Mundo 2026 — armá grupos con amigos, predecí cada partido y mirá tu bracket llenarse en tiempo real.",
+  "url": "https://martroal.github.io/prode-mundial-2026/",
+  "image": "https://martroal.github.io/prode-mundial-2026/icon-512.png",
+  "applicationCategory": "SportsApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript. Requires HTML5.",
+  "inLanguage": "es-AR",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ARS" },
+  "author": { "@type": "Person", "name": "martroal" },
+  "about": {
+    "@type": "SportsEvent",
+    "name": "Copa Mundial de la FIFA 2026",
+    "startDate": "2026-06-11",
+    "endDate": "2026-07-19",
+    "sport": "Soccer",
+    "location": [
+      { "@type": "Country", "name": "Estados Unidos" },
+      { "@type": "Country", "name": "México" },
+      { "@type": "Country", "name": "Canadá" }
+    ]
+  }
+}
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
