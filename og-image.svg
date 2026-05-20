@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#283593"/>
+      <stop offset="100%" stop-color="#0d1454"/>
+    </linearGradient>
+    <linearGradient id="cta" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffd700"/>
+      <stop offset="100%" stop-color="#ffa000"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Decorative bracket lines -->
+  <g opacity="0.07" stroke="white" stroke-width="2" fill="none">
+    <line x1="60" y1="80"  x2="1140" y2="80"/>
+    <line x1="60" y1="550" x2="1140" y2="550"/>
+  </g>
+
+  <!-- Soccer ball (large, on the left) -->
+  <g transform="translate(220, 280)">
+    <circle r="155" fill="white"/>
+    <polygon points="0,-52 49,-18 30,40 -30,40 -49,-18" fill="#1a237e"/>
+    <line x1="0"   y1="-52" x2="0"    y2="-128" stroke="#1a237e" stroke-width="8" stroke-linecap="round"/>
+    <line x1="49"  y1="-18" x2="120"  y2="-40"  stroke="#1a237e" stroke-width="8" stroke-linecap="round"/>
+    <line x1="30"  y1="40"  x2="76"   y2="108"  stroke="#1a237e" stroke-width="8" stroke-linecap="round"/>
+    <line x1="-30" y1="40"  x2="-76"  y2="108"  stroke="#1a237e" stroke-width="8" stroke-linecap="round"/>
+    <line x1="-49" y1="-18" x2="-120" y2="-40"  stroke="#1a237e" stroke-width="8" stroke-linecap="round"/>
+    <circle r="155" fill="none" stroke="#1a237e" stroke-width="8"/>
+    <!-- Year badge under the ball -->
+    <g transform="translate(0, 200)">
+      <rect x="-105" y="-32" width="210" height="64" rx="32" fill="#ffd700"/>
+      <text x="0" y="20" font-family="Impact, 'Arial Black', sans-serif" font-size="48" font-weight="900" fill="#1a237e" text-anchor="middle" letter-spacing="2">2026</text>
+    </g>
+  </g>
+
+  <!-- Text block on right -->
+  <text x="450" y="215" font-family="Impact, 'Arial Black', sans-serif" font-size="78" font-weight="900" fill="#ffffff" letter-spacing="1">PRODE MUNDIAL</text>
+  <text x="450" y="305" font-family="'Segoe UI', Arial, sans-serif" font-size="36" font-weight="700" fill="#ffd700">Predicciones colaborativas</text>
+  <text x="450" y="350" font-family="'Segoe UI', Arial, sans-serif" font-size="36" font-weight="700" fill="#ffd700">con tus amigos</text>
+  <text x="450" y="405" font-family="'Segoe UI', Arial, sans-serif" font-size="26" font-weight="500" fill="rgba(255,255,255,0.7)">USA · México · Canadá   ·   11 jun – 19 jul</text>
+
+  <!-- CTA badge -->
+  <g transform="translate(450, 445)">
+    <rect width="420" height="82" rx="41" fill="url(#cta)"/>
+    <text x="210" y="56" font-family="Impact, 'Arial Black', sans-serif" font-size="36" font-weight="900" fill="#1a237e" text-anchor="middle" letter-spacing="2">SUMATE GRATIS  →</text>
+  </g>
+
+  <!-- URL footer -->
+  <text x="600" y="595" font-family="'Segoe UI', Arial, sans-serif" font-size="22" font-weight="600" fill="rgba(255,255,255,0.55)" text-anchor="middle" letter-spacing="1">martroal.github.io/prode-mundial-2026</text>
+</svg>
