@@ -331,6 +331,9 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 
 /* SCHEDULE LABEL */
 .m-sched{font-size:.65rem;color:var(--muted);text-align:center;padding:.1rem .3rem;margin-top:.25rem;background:#fafafa;border-radius:6px;font-weight:600}
+.mr.ko-locked{opacity:.65;background:#fafafa}
+.mr.ko-locked .tn{font-style:italic}
+.ko-row-tag{text-align:center;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:.25rem 0 .1rem}
 
 /* TORNEO grids — Fase grupos: 1 col (full width). Eliminatorias: 2 cols (1 en ultra-mobile). */
 .t-standings-grid{display:grid;grid-template-columns:1fr;gap:.6rem}
@@ -471,6 +474,8 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .pbar-fill{background:linear-gradient(90deg,var(--p),var(--p2));height:100%;border-radius:6px}
 .pbar-n{font-weight:700;color:var(--muted);font-size:.7rem;white-space:nowrap}
 @media(max-width:380px){.pk-grid{grid-template-columns:repeat(2,1fr)}}
+.puser{display:flex;align-items:center;gap:.55rem;padding:.4rem 0;border-bottom:1px solid #f0f0f5}
+.puser:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -564,10 +569,11 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
   </div>
 
   <div class="view active" id="view-preds">
-    <div class="stabs" id="preds-mode-tabs">
-      <button class="st active" id="pm-grupo" onclick="setPredsMode('grupo')">📁 Por grupo</button>
-      <button class="st" id="pm-dia" onclick="setPredsMode('dia')">📅 Por día</button>
+    <div class="stabs" id="preds-stage-tabs">
+      <button class="st active" id="ps-grupos" onclick="setPredsStage('grupos')">⚽ Grupos</button>
+      <button class="st" id="ps-ko" onclick="setPredsStage('ko')">🏆 Eliminatorias</button>
     </div>
+    <div class="stabs" id="preds-mode-tabs"></div>
     <div class="stabs" id="gtabs"></div>
     <div id="preds-c"></div>
   </div>
@@ -1116,8 +1122,13 @@ let unsubGroup   = null;
 let unsubMembers = null;
 let unsubGlobal  = null;
 let curGroup     = 'A';
-let curDia       = 0;        // índice del día activo en modo "por día" (0 = primer día del fase de grupos)
-let predsMode    = 'grupo';  // 'grupo' | 'dia' — cómo agrupar en Predicciones
+let curDia       = 0;        // índice día activo (fase de grupos)
+let curJornada   = 1;        // jornada 1-3
+let curFase      = 'r32';    // ronda KO activa
+let curKoDia     = 0;        // índice día activo (eliminatorias)
+let predsStage   = 'grupos'; // 'grupos' | 'ko' — nivel 1 de Predicciones
+let predsModeG   = 'dia';    // grupos: 'dia' | 'grupo' | 'jornada'
+let predsModeK   = 'fase';   // eliminatorias: 'fase' | 'dia'
 let previewMode  = false;    // true cuando no hay user logueado — predicciones a localStorage
 let previewPreds = {};       // cache en memoria de las preds de preview
 const PREVIEW_LS_KEY = 'prode-preview-preds-v1';
@@ -1161,7 +1172,8 @@ function enterPreviewMode(){
   curView = 'preds';
   curGroup = 'A';
   curJornada = 1;
-  predsMode = 'grupo';
+  predsStage = 'grupos';
+  predsModeG = 'dia';
   document.body.classList.add('preview-active');
   const titleEl = document.getElementById('app-title');
   if (titleEl) titleEl.textContent = '👀 Vista previa';
@@ -1426,17 +1438,47 @@ function matchesForDay(dateStr){
     .sort((a,b)=>(SCHEDULE_MAP[a.id]?.time||'').localeCompare(SCHEDULE_MAP[b.id]?.time||''));
 }
 
-// Tabs de selector dentro de Predicciones (G.A..G.L o un tab por día según predsMode)
-function renderPredsSelectorTabs(){
-  const el=document.getElementById('gtabs');
-  if(!el)return;
-  if(predsMode==='dia'){
-    const days=groupStageDays();
-    el.innerHTML=days.map((d,i)=>`<button class="st${i===curDia?' active':''}" onclick="setDia(${i})">${dayShortLabel(d)}</button>`).join('');
-    // Auto-scroll a la tab activa para que sea visible
-    setTimeout(()=>{const a=el.querySelector('.st.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},50);
+// Días de eliminatorias (orden cronológico)
+function koStageDays(){
+  return SCHEDULE_RAW.filter(d=>d.matches.some(m=>m.stage)).map(d=>d.date);
+}
+function koMatchesForDay(dateStr){
+  return KO_MATCHES.filter(m=>SCHEDULE_MAP[m.id]?.date===dateStr)
+    .sort((a,b)=>(SCHEDULE_MAP[a.id]?.time||'').localeCompare(SCHEDULE_MAP[b.id]?.time||''));
+}
+function _scrollActive(el){setTimeout(()=>{const a=el.querySelector('.st.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},50);}
+
+// Tabs de nivel 2 (modo) y nivel 3 (selector) según predsStage
+function renderPredsTabs(){
+  const modeEl=document.getElementById('preds-mode-tabs');
+  const selEl=document.getElementById('gtabs');
+  if(!modeEl||!selEl)return;
+  if(predsStage==='grupos'){
+    modeEl.innerHTML=`
+      <button class="st${predsModeG==='dia'?' active':''}" onclick="setPredsModeG('dia')">📅 Por día</button>
+      <button class="st${predsModeG==='grupo'?' active':''}" onclick="setPredsModeG('grupo')">📁 Por grupo</button>
+      <button class="st${predsModeG==='jornada'?' active':''}" onclick="setPredsModeG('jornada')">🗓️ Por jornada</button>`;
+    if(predsModeG==='dia'){
+      const days=groupStageDays();
+      selEl.innerHTML=days.map((d,i)=>`<button class="st${i===curDia?' active':''}" onclick="setDia(${i})">${dayShortLabel(d)}</button>`).join('');
+      _scrollActive(selEl);
+    }else if(predsModeG==='grupo'){
+      selEl.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="setGroup('${g}')">G.${g}</button>`).join('');
+    }else{
+      selEl.innerHTML=[1,2,3].map(j=>`<button class="st${j===curJornada?' active':''}" onclick="setJornada(${j})">Jornada ${j}</button>`).join('');
+    }
   }else{
-    el.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="setGroup('${g}')">G.${g}</button>`).join('');
+    modeEl.innerHTML=`
+      <button class="st${predsModeK==='fase'?' active':''}" onclick="setPredsModeK('fase')">🏆 Por fase</button>
+      <button class="st${predsModeK==='dia'?' active':''}" onclick="setPredsModeK('dia')">📅 Por día</button>`;
+    if(predsModeK==='fase'){
+      selEl.innerHTML=KO_ROUNDS.map(r=>`<button class="st${r.key===curFase?' active':''}" onclick="setFase('${r.key}')">${r.icon} ${r.label}</button>`).join('');
+      _scrollActive(selEl);
+    }else{
+      const days=koStageDays();
+      selEl.innerHTML=days.map((d,i)=>`<button class="st${i===curKoDia?' active':''}" onclick="setKoDia(${i})">${dayShortLabel(d)}</button>`).join('');
+      _scrollActive(selEl);
+    }
   }
 }
 
@@ -1476,38 +1518,116 @@ function predMatchRowHTML(m,pred){
   </div>`;
 }
 
+// Fila de predicción para un partido KO (equipos del bracket REAL; bloqueado hasta que se definan)
+function predKoRowHTML(def,pred){
+  const home=resolveSlot(def.home,globalResults),away=resolveSlot(def.away,globalResults);
+  const isFinal=def.id==='f_1',isTP=def.id.startsWith('tp');
+  const tag=isFinal?'<div class="ko-row-tag" style="color:#e65100">🏆 FINAL</div>':(isTP?'<div class="ko-row-tag" style="color:#6a1b9a">🥉 Tercer puesto</div>':'');
+  const sched=schedShort(def.id,true);
+  const schedHtml=sched?`<div class="m-sched">📅 ${sched}</div>`:'';
+  if(!(home&&away)){
+    const hL=home?`${home.f} ${home.n}`:slotLabel(def.home),aL=away?`${away.f} ${away.n}`:slotLabel(def.away);
+    return `${tag}${schedHtml}<div class="mr ko-locked">
+      <div class="tn h"><i class="ko-tbd">${hL}</i></div>
+      <div class="sw" style="justify-content:center"><span style="font-size:1.1rem" title="Se desbloquea cuando se definan los equipos">🔒</span></div>
+      <div class="tn a"><i class="ko-tbd">${aL}</i></div>
+    </div>`;
+  }
+  const p=pred[def.id]||{},r=globalResults?.[def.id];
+  const hv=p.h!==undefined&&p.h!==''?p.h:'',av=p.a!==undefined&&p.a!==''?p.a:'';
+  let ind='';
+  if(r&&r.h!==undefined&&hv!==''&&av!==''){
+    const po=Math.sign(+hv-(+av)),ro=Math.sign(r.h-r.a);
+    ind=(+hv===r.h&&+av===r.a)?'<span class="ie">★★★</span>':po===ro?'<span class="ir">★</span>':'<span class="iw">✗</span>';
+  }
+  const rD=(r&&r.h!==undefined)?`<span class="rs">[${r.h}-${r.a}]</span>`:'';
+  const isTie=hv!==''&&av!==''&&(+hv===+av);
+  const tie=isTie?`<div class="ko-tie">
+    <span class="ko-tie-lbl">¿Quién pasa?</span>
+    <button class="ko-tie-btn${p.winner==='h'?' sel':''}" onclick="savePredWinner('${def.id}','h');renderPreds()">${home.f} ${home.n}</button>
+    <button class="ko-tie-btn${p.winner==='a'?' sel':''}" onclick="savePredWinner('${def.id}','a');renderPreds()">${away.f} ${away.n}</button>
+  </div>`:'';
+  return `${tag}${schedHtml}
+  <div class="mr">
+    <div class="tn h">${home.f} ${home.n}</div>
+    <div class="sw"><div class="siw">
+      <div class="si-wrap"><button class="si-btn" onclick="bumpPred('${def.id}','h',-1)">−</button>
+        <input class="si${hv!==''?' f':''}" data-pred="${def.id}_h" type="number" min="0" max="20" value="${hv}" placeholder="-" onchange="savePred('${def.id}','h',this.value);renderPreds()">
+        <button class="si-btn" onclick="bumpPred('${def.id}','h',1)">+</button></div>
+      <span class="sdiv">:</span>
+      <div class="si-wrap"><button class="si-btn" onclick="bumpPred('${def.id}','a',-1)">−</button>
+        <input class="si${av!==''?' f':''}" data-pred="${def.id}_a" type="number" min="0" max="20" value="${av}" placeholder="-" onchange="savePred('${def.id}','a',this.value);renderPreds()">
+        <button class="si-btn" onclick="bumpPred('${def.id}','a',1)">+</button></div>
+    </div><div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div></div>
+    <div class="tn a">${away.f} ${away.n}</div>
+  </div>${tie}`;
+}
+
 function renderPreds(){
-  renderPredsSelectorTabs();
+  renderPredsTabs();
   const el=document.getElementById('preds-c');
   if(!currentUser){el.innerHTML='';return;}
   const pred=myPreds();
   let html='';
-  if(predsMode==='grupo'){
-    const gm=MATCHES.filter(m=>m.group===curGroup);
-    html='<div class="card">';
-    html+=`<div class="ch"><span class="gbadge">${curGroup}</span>${GROUPS[curGroup].teams.map(t=>t.f+' '+t.n).join(' · ')}</div>`;
-    [1,2,3].forEach(j=>{
-      html+=`<div class="jl">Jornada ${j}</div>`;
-      gm.filter(m=>m.jornada===j).forEach(m=>{html+=predMatchRowHTML(m,pred);});
-    });
-    html+='</div>';
+  if(predsStage==='grupos'){
+    if(predsModeG==='grupo'){
+      const gm=MATCHES.filter(m=>m.group===curGroup);
+      html='<div class="card">';
+      html+=`<div class="ch"><span class="gbadge">${curGroup}</span>${GROUPS[curGroup].teams.map(t=>t.f+' '+t.n).join(' · ')}</div>`;
+      [1,2,3].forEach(j=>{
+        html+=`<div class="jl">Jornada ${j}</div>`;
+        gm.filter(m=>m.jornada===j).forEach(m=>{html+=predMatchRowHTML(m,pred);});
+      });
+      html+='</div>';
+    }else if(predsModeG==='jornada'){
+      const jm=MATCHES.filter(m=>m.jornada===curJornada).sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
+      html='<div class="card">';
+      html+=`<div class="ch">🗓️ Jornada ${curJornada} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} partidos)</span></div>`;
+      let lastDate=null;
+      jm.forEach(m=>{
+        const s=SCHEDULE_MAP[m.id];
+        if(s&&s.date!==lastDate){lastDate=s.date;html+=`<div class="jl">${s.date}</div>`;}
+        html+=`<div style="font-size:.7rem;color:var(--muted);font-weight:700;padding:.3rem 0 .15rem;display:flex;align-items:center;gap:.35rem"><span class="gbadge">${m.group}</span>${s?`<span style="margin-left:auto;font-weight:500">⏰ ${s.time}hs</span>`:''}</div>`;
+        html+=predMatchRowHTML(m,pred);
+      });
+      html+='</div>';
+    }else{
+      const days=groupStageDays();
+      if(curDia>=days.length)curDia=0;
+      const dateStr=days[curDia]||days[0];
+      const jm=matchesForDay(dateStr);
+      html='<div class="card">';
+      html+=`<div class="ch">📅 ${dateStr} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} ${jm.length===1?'partido':'partidos'} · día ${curDia+1}/${days.length})</span></div>`;
+      jm.forEach(m=>{
+        const s=SCHEDULE_MAP[m.id];
+        html+=`<div style="font-size:.7rem;color:var(--muted);font-weight:700;padding:.3rem 0 .15rem;display:flex;align-items:center;gap:.35rem"><span class="gbadge">${m.group}</span><span>J${m.jornada}</span>${s?`<span style="margin-left:auto;font-weight:500">⏰ ${s.time}hs</span>`:''}</div>`;
+        html+=predMatchRowHTML(m,pred);
+      });
+      html+='</div>';
+    }
+    html+='<div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">★★★ Exacto = 3 pts · ★ Resultado = 1 pt</div>';
   }else{
-    // Modo "por día": partidos de un día específico ordenados por hora
-    const days=groupStageDays();
-    if(curDia>=days.length)curDia=0;
-    const dateStr=days[curDia]||days[0];
-    const jm=matchesForDay(dateStr);
-    html='<div class="card">';
-    html+=`<div class="ch">📅 ${dateStr} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} ${jm.length===1?'partido':'partidos'} · día ${curDia+1}/${days.length})</span></div>`;
-    jm.forEach(m=>{
-      const s=SCHEDULE_MAP[m.id];
-      const meta=s?`${s.time}hs`:'';
-      html+=`<div style="font-size:.7rem;color:var(--muted);font-weight:700;padding:.3rem 0 .15rem;display:flex;align-items:center;gap:.35rem"><span class="gbadge">${m.group}</span><span>J${m.jornada}</span>${meta?`<span style="margin-left:auto;font-weight:500">⏰ ${meta}</span>`:''}</div>`;
-      html+=predMatchRowHTML(m,pred);
-    });
-    html+='</div>';
+    // Eliminatorias
+    const gsDone=isGroupStageComplete(globalResults);
+    if(predsModeK==='fase'){
+      const round=KO_ROUNDS.find(r=>r.key===curFase)||KO_ROUNDS[0];
+      const matches=KO_STRUCTURE[round.key];
+      html='<div class="card">';
+      html+=`<div class="ch">${round.icon} ${round.label} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${matches.length} ${matches.length===1?'partido':'partidos'})</span></div>`;
+      matches.forEach(def=>{html+=predKoRowHTML(def,pred);});
+      html+='</div>';
+    }else{
+      const days=koStageDays();
+      if(curKoDia>=days.length)curKoDia=0;
+      const dateStr=days[curKoDia]||days[0];
+      const dayMs=koMatchesForDay(dateStr);
+      html='<div class="card">';
+      html+=`<div class="ch">📅 ${dateStr} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${dayMs.length} ${dayMs.length===1?'partido':'partidos'})</span></div>`;
+      dayMs.forEach(def=>{html+=predKoRowHTML(def,pred);});
+      html+='</div>';
+    }
+    html+=`<div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">${gsDone?'★★★ Exacto = 3 pts · ★ Resultado = 1 pt':'🔒 Los partidos se desbloquean cuando termine la fase de grupos y se definan los equipos'}</div>`;
   }
-  html+='<div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">★★★ Exacto = 3 pts · ★ Resultado = 1 pt</div>';
   el.innerHTML=html;
 }
 
@@ -1521,21 +1641,29 @@ function parseDayString(dateStr){
 
 function setGroup(g){curGroup=g;renderPreds();}
 function setDia(i){curDia=i;renderPreds();}
-function setPredsMode(mode){
-  predsMode=mode;
-  const g=document.getElementById('pm-grupo');
-  const d=document.getElementById('pm-dia');
-  if(g)g.classList.toggle('active',mode==='grupo');
-  if(d)d.classList.toggle('active',mode==='dia');
-  // Default al entrar a "día": hoy (si está en rango del fase de grupos), sino el primer día
-  if(mode==='dia'){
-    const days=groupStageDays();
-    const todayStr=new Date().toDateString();
-    const todayIdx=days.findIndex(d=>parseDayString(d).toDateString()===todayStr);
-    if(todayIdx>=0)curDia=todayIdx;
-  }
+function setJornada(j){curJornada=j;renderPreds();}
+function setFase(k){curFase=k;renderPreds();}
+function setKoDia(i){curKoDia=i;renderPreds();}
+function _defaultDiaHoy(){
+  const days=groupStageDays(),t=new Date().toDateString();
+  const i=days.findIndex(d=>parseDayString(d).toDateString()===t);
+  if(i>=0)curDia=i;
+}
+function _defaultKoDiaHoy(){
+  const days=koStageDays(),t=new Date().toDateString();
+  const i=days.findIndex(d=>parseDayString(d).toDateString()===t);
+  if(i>=0)curKoDia=i;
+}
+function setPredsStage(stage){
+  predsStage=stage;
+  document.getElementById('ps-grupos')?.classList.toggle('active',stage==='grupos');
+  document.getElementById('ps-ko')?.classList.toggle('active',stage==='ko');
+  if(stage==='grupos'&&predsModeG==='dia')_defaultDiaHoy();
+  if(stage==='ko'&&predsModeK==='dia')_defaultKoDiaHoy();
   renderPreds();
 }
+function setPredsModeG(mode){predsModeG=mode;if(mode==='dia')_defaultDiaHoy();renderPreds();}
+function setPredsModeK(mode){predsModeK=mode;if(mode==='dia')_defaultKoDiaHoy();renderPreds();}
 
 function bumpPred(matchId,side,delta){
   if(!currentUser||!currentGroup)return;
@@ -1544,7 +1672,8 @@ function bumpPred(matchId,side,delta){
   const newVal=Math.max(0,Math.min(20,curNum+delta));
   if(newVal===curNum&&cur!==''&&cur!==undefined)return;
   savePred(matchId,side,String(newVal));
-  // Update input visualmente sin re-render completo
+  // En eliminatorias re-renderizamos (tie-picker + propagación del bracket); en grupos basta el input
+  if(predsStage==='ko'&&curView==='preds'){renderPreds();return;}
   const input=document.querySelector(`input[data-pred="${matchId}_${side}"]`);
   if(input){input.value=newVal;input.classList.add('f');}
 }
@@ -2486,6 +2615,7 @@ async function renderPanel(){
     const champTally={};
     let biggest={name:'—',n:0};
     let new24=0,new7=0;
+    const userMap={}; // uid -> {name,photo,groups,preds,lastGroup}
     groups.forEach(g=>{
       const realMs=g.members.filter(m=>!m.isBot);
       if(g.members.length>biggest.n)biggest={name:g.name,n:g.members.length};
@@ -2503,6 +2633,10 @@ async function renderPanel(){
         if(filled>=MATCHES.length)usersComplete++;
         sumCompletion+=filled/MATCHES.length;
         if(pred.champion)champTally[pred.champion]=(champTally[pred.champion]||0)+1;
+        const u=userMap[m.uid]||(userMap[m.uid]={name:m.displayName||'?',photo:m.photoURL||'',groups:0,preds:0,owner:false});
+        u.groups++;
+        if(filled>u.preds)u.preds=filled;
+        if(g.ownerUid===m.uid)u.owner=true;
       });
     });
     const uniqueUsers=realUsers.size;
@@ -2548,6 +2682,25 @@ async function renderPanel(){
       <div class="pstat"><span>Partidos de grupos con resultado</span><b>${playedMatches} / ${MATCHES.length}</b></div>
       <div class="pstat"><span>Partidos KO con resultado</span><b>${koPlayed} / ${KO_MATCHES.length}</b></div>
     </div>`;
+
+    // Lista de usuarios
+    const usersList=Object.entries(userMap).sort((a,b)=>b[1].preds-a[1].preds);
+    html+=`<div class="card"><div class="ch">👥 Usuarios (${usersList.length})</div>`;
+    if(usersList.length){
+      html+=usersList.map(([uid,u])=>{
+        const color=avatarColor(u.name);
+        const photo=u.photo?`<img class="avatar" style="width:30px;height:30px" src="${u.photo}" alt="">`
+          :`<div class="avatar-ph" style="width:30px;height:30px;font-size:.85rem;background:${color}">${u.name[0]?.toUpperCase()||'?'}</div>`;
+        return`<div class="puser">
+          ${photo}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name}${u.owner?' <span class="tag tag-owner" style="font-size:.6rem">👑</span>':''}</div>
+            <div style="font-size:.66rem;color:var(--muted)">${u.groups} grupo${u.groups===1?'':'s'} · ${u.preds}/${MATCHES.length} preds</div>
+          </div>
+        </div>`;
+      }).join('');
+    }else html+='<p style="color:var(--muted);font-size:.82rem">Sin usuarios todavía.</p>';
+    html+=`</div>`;
 
     html+=`<div class="card" style="background:#f5f5fa"><div style="font-size:.72rem;color:var(--muted);line-height:1.5">
       📌 <b>Cargas de página</b> cuenta cada vez que se abre la app (requiere la regla de Firestore para <code>stats/counters</code>; si marca —, falta agregarla). Para analítica completa (países, dispositivos, tiempo real) mirá <a href="https://console.firebase.google.com/project/prode-mundial-5e21f/analytics" target="_blank" rel="noopener" style="color:var(--p);font-weight:600">Firebase Analytics →</a>
