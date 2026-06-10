@@ -448,6 +448,12 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .cal-m .cal-vs{font-weight:700;color:#333}
 .cal-m .cal-v{display:block;font-size:.66rem;color:var(--muted);margin-top:.2rem;font-weight:500}
 .cal-stage{display:inline-block;font-size:.6rem;font-weight:800;background:#f9a825;color:#1a237e;padding:.05rem .35rem;border-radius:4px;margin-left:.3rem;letter-spacing:.3px;text-transform:uppercase}
+
+/* Header del Horarios (pills meta) */
+.cal-meta{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.85rem}
+.cal-pill{background:#ede7f6;color:var(--p);padding:.3rem .65rem;border-radius:14px;font-weight:700;font-size:.72rem;letter-spacing:.2px;white-space:nowrap}
+.cal-pill-link{margin-left:auto;text-decoration:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;transition:transform .12s}
+.cal-pill-link:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(26,35,126,.25)}
 </style>
 </head>
 <body>
@@ -777,9 +783,9 @@ const SCHEDULE_RAW=[
   {date:'Sábado 13 de Junio',matches:[
     {id:5,group:'B',teams:['Catar','Suiza'],time:'16:00',venue:'Bahía de San Francisco'},
     {id:6,group:'C',teams:['Brasil','Marruecos'],time:'19:00',venue:'Nueva York Nueva Jersey'},
-    {id:7,group:'C',teams:['Haití','Escocia'],time:'22:00',venue:'Boston'},
-    {id:8,group:'D',teams:['Australia','Turquía'],time:'01:00',venue:'BC Place Vancouver'}]},
+    {id:7,group:'C',teams:['Haití','Escocia'],time:'22:00',venue:'Boston'}]},
   {date:'Domingo 14 de Junio',matches:[
+    {id:8,group:'D',teams:['Australia','Turquía'],time:'01:00',venue:'BC Place Vancouver'},
     {id:9,group:'E',teams:['Alemania','Curazao'],time:'14:00',venue:'Houston'},
     {id:10,group:'F',teams:['Países Bajos','Japón'],time:'17:00',venue:'Dallas'},
     {id:11,group:'E',teams:['Costa de Marfil','Ecuador'],time:'20:00',venue:'Filadelfia'},
@@ -792,9 +798,9 @@ const SCHEDULE_RAW=[
   {date:'Martes 16 de Junio',matches:[
     {id:17,group:'I',teams:['Francia','Senegal'],time:'16:00',venue:'Nueva York Nueva Jersey'},
     {id:18,group:'I',teams:['Irak','Noruega'],time:'19:00',venue:'Boston'},
-    {id:19,group:'J',teams:['Argentina','Argelia'],time:'22:00',venue:'Kansas City'},
-    {id:20,group:'J',teams:['Austria','Jordania'],time:'01:00',venue:'Bahía de San Francisco'}]},
+    {id:19,group:'J',teams:['Argentina','Argelia'],time:'22:00',venue:'Kansas City'}]},
   {date:'Miércoles 17 de Junio',matches:[
+    {id:20,group:'J',teams:['Austria','Jordania'],time:'01:00',venue:'Bahía de San Francisco'},
     {id:21,group:'K',teams:['Portugal','RD Congo'],time:'14:00',venue:'Houston'},
     {id:22,group:'L',teams:['Inglaterra','Croacia'],time:'17:00',venue:'Dallas'},
     {id:23,group:'L',teams:['Ghana','Panamá'],time:'20:00',venue:'Toronto'},
@@ -918,12 +924,12 @@ SCHEDULE_RAW.forEach(d=>d.matches.forEach(m=>{
   }
 }));
 
-function schedShort(matchId){
+function schedShort(matchId,withVenue){
   const s=SCHEDULE_MAP[matchId];
   if(!s)return'';
   const day=s.date.split(' de ')[0].split(' ').slice(-1)[0]+'/'+(s.date.match(/Junio/)?'06':'07');
   const dow=s.date.split(' ')[0].slice(0,3);
-  return`${dow} ${day} ${s.time}hs · ${s.venue}`;
+  return`${dow} ${day} ${s.time}hs${withVenue?' · '+s.venue:''}`;
 }
 
 /* ═══════════════ STANDINGS + BRACKET RESOLUTION ═══════════════ */
@@ -1449,7 +1455,7 @@ function renderPreds(){
     html+=`<div class="ch">📅 ${dateStr} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${jm.length} ${jm.length===1?'partido':'partidos'} · día ${curDia+1}/${days.length})</span></div>`;
     jm.forEach(m=>{
       const s=SCHEDULE_MAP[m.id];
-      const meta=s?`${s.time}hs · ${s.venue}`:'';
+      const meta=s?`${s.time}hs`:'';
       html+=`<div style="font-size:.7rem;color:var(--muted);font-weight:700;padding:.3rem 0 .15rem;display:flex;align-items:center;gap:.35rem"><span class="gbadge">${m.group}</span><span>J${m.jornada}</span>${meta?`<span style="margin-left:auto;font-weight:500">⏰ ${meta}</span>`:''}</div>`;
       html+=predMatchRowHTML(m,pred);
     });
@@ -1874,8 +1880,12 @@ function renderHorarios(){
   const el=document.getElementById('horarios-c');
   if(!el)return;
   el.innerHTML=`<div class="card">
-    <div class="ch">📅 Calendario del Mundial <span style="font-size:.7rem;color:var(--muted);font-weight:600">(tocá un día para expandir)</span></div>
-    <div style="font-size:.74rem;color:var(--muted);margin-bottom:.7rem;line-height:1.45">104 partidos · 16 sedes en USA, México y Canadá · 11 jun – 19 jul. <a href="calendario.html" style="color:var(--p);font-weight:700;text-decoration:none">📄 Abrir en página completa →</a></div>
+    <div class="ch">📅 Calendario del Mundial</div>
+    <div class="cal-meta">
+      <span class="cal-pill">⚽ 104 partidos</span>
+      <span class="cal-pill">📅 11 jun – 19 jul</span>
+      <a href="calendario.html" class="cal-pill cal-pill-link">📄 Ver completo →</a>
+    </div>
     ${_calendarDaysHTML()}
   </div>`;
 }
@@ -2126,7 +2136,7 @@ function renderAdminKO(){
         <button class="btn" style="padding:.15rem .5rem;font-size:.7rem;background:${r.winner==='h'?'var(--green)':'#eee'};color:${r.winner==='h'?'#fff':'#333'}" onclick="saveKOWinner('${m.id}','h')">${home?home.n.substr(0,8):'Home'}</button>
         <button class="btn" style="padding:.15rem .5rem;font-size:.7rem;background:${r.winner==='a'?'var(--green)':'#eee'};color:${r.winner==='a'?'#fff':'#333'}" onclick="saveKOWinner('${m.id}','a')">${away?away.n.substr(0,8):'Away'}</button>
       </div>`:'';
-      const sched=schedShort(m.id);
+      const sched=schedShort(m.id,true);
       return`<div style="border:1px solid var(--border);border-radius:8px;padding:.4rem .5rem;margin-bottom:.35rem;font-size:.78rem">
         <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem;flex-wrap:wrap">${label}<span style="font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">${m.id}</span>${sched?`<span style="font-size:.66rem;color:var(--muted);margin-left:auto">📅 ${sched}</span>`:''}</div>
         <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.35rem">
