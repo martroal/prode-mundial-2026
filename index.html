@@ -2164,14 +2164,50 @@ function addProfileComment(uid){
 }
 
 /* ═══════════════ NOTIFICACIONES ═══════════════ */
+let notifInit=false;
 function subscribeNotifs(uid){
   if(unsubNotifs){unsubNotifs();unsubNotifs=null;}
+  notifInit=false;
   unsubNotifs=db.collection('users').doc(uid).collection('notifs')
     .orderBy('createdAt','desc').limit(50)
     .onSnapshot(snap=>{
-      myNotifs=[];snap.forEach(d=>myNotifs.push({id:d.id,...d.data()}));
+      const arr=[];snap.forEach(d=>arr.push({id:d.id,...d.data()}));
+      // Disparar notificación del navegador para las que llegaron nuevas (no en la carga inicial)
+      if(notifInit){
+        const prev=new Set(myNotifs.map(n=>n.id));
+        arr.filter(n=>!prev.has(n.id)&&!n.read).forEach(fireBrowserNotif);
+      }
+      myNotifs=arr;
+      notifInit=true;
       updateNotifBadge();
     },()=>{});
+}
+
+// Notificación nativa del navegador (gratis, sin backend; requiere la app abierta)
+function fireBrowserNotif(n){
+  try{
+    if(!('Notification'in window)||Notification.permission!=='granted')return;
+    const body=(n.text||'').replace(/<[^>]+>/g,'');
+    const notif=new Notification('💬 Prode Mundial 2026',{
+      body, icon:'icon-192.png', badge:'icon-192.png', tag:n.id
+    });
+    notif.onclick=()=>{window.focus();notif.close();};
+  }catch(e){}
+}
+
+function requestNotifPerm(){
+  if(!('Notification'in window)){toast('Tu navegador no soporta notificaciones');return;}
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){toast('🔔 Avisos del navegador activados');}
+    else if(p==='denied'){toast('Bloqueado. Activalo desde el candado de la barra de direcciones');}
+    if(document.getElementById('mo')?.classList.contains('open'))openConfig();
+  });
+}
+function notifPermLabel(){
+  if(!('Notification'in window))return'<span style="font-size:.7rem;color:var(--muted)">Tu navegador no soporta avisos</span>';
+  if(Notification.permission==='granted')return'<span style="font-size:.72rem;color:var(--green);font-weight:700">✅ Avisos del navegador activados</span>';
+  if(Notification.permission==='denied')return'<span style="font-size:.7rem;color:var(--muted)">🔕 Avisos bloqueados (activalos desde el navegador)</span>';
+  return'<button class="btn bp bblock" style="font-size:.78rem;padding:.45rem" onclick="requestNotifPerm()">🔔 Activar avisos del navegador</button>';
 }
 function updateNotifBadge(){
   const badge=document.getElementById('cfg-badge');
@@ -2237,7 +2273,8 @@ function openConfig(){
     </div>
     <div class="cfg-sec">
       <label class="cfg-lbl">🔔 Notificaciones</label>
-      <div style="max-height:170px;overflow-y:auto">${renderNotifsSection()}</div>
+      <div style="margin-bottom:.5rem">${notifPermLabel()}</div>
+      <div style="max-height:160px;overflow-y:auto">${renderNotifsSection()}</div>
     </div>
     <div class="cfg-sec">
       <label class="cfg-lbl">Apodo <span class="cfg-opt">(reemplaza tu nombre)</span></label>
