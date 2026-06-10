@@ -739,15 +739,16 @@ const R32_STRUCTURE=[
   {id:'r32_15',home:'1K',away:'38'},  // P87
   {id:'r32_16',home:'2D',away:'2G'},  // P88
 ];
+// Bracket R16 verificado contra ESPN/FIFA oficial (el de remix22 estaba mal armado)
 const R16_STRUCTURE=[
-  {id:'r16_1',home:'W_r32_2', away:'W_r32_5'},   // P89 (W74 vs W77)
-  {id:'r16_2',home:'W_r32_1', away:'W_r32_3'},   // P90 (W73 vs W75)
-  {id:'r16_3',home:'W_r32_4', away:'W_r32_6'},   // P91 (W76 vs W78)
-  {id:'r16_4',home:'W_r32_7', away:'W_r32_8'},   // P92 (W79 vs W80)
-  {id:'r16_5',home:'W_r32_11',away:'W_r32_12'},  // P93 (W83 vs W84)
-  {id:'r16_6',home:'W_r32_9', away:'W_r32_10'},  // P94 (W81 vs W82)
-  {id:'r16_7',home:'W_r32_14',away:'W_r32_16'},  // P95 (W86 vs W88)
-  {id:'r16_8',home:'W_r32_13',away:'W_r32_15'},  // P96 (W85 vs W87)
+  {id:'r16_1',home:'W_r32_1', away:'W_r32_3'},
+  {id:'r16_2',home:'W_r32_4', away:'W_r32_6'},
+  {id:'r16_3',home:'W_r32_2', away:'W_r32_7'},
+  {id:'r16_4',home:'W_r32_5', away:'W_r32_10'},
+  {id:'r16_5',home:'W_r32_11',away:'W_r32_12'},
+  {id:'r16_6',home:'W_r32_9', away:'W_r32_8'},
+  {id:'r16_7',home:'W_r32_13',away:'W_r32_14'},
+  {id:'r16_8',home:'W_r32_16',away:'W_r32_15'},
 ];
 const QF_STRUCTURE=[
   {id:'qf_1',home:'W_r16_1',away:'W_r16_2'},  // P97 (W89 vs W90)
@@ -863,48 +864,55 @@ const SCHEDULE_RAW=[
     {id:70,group:'K',teams:['RD Congo','Uzbekistán'],time:'20:30',venue:'Atlanta'},
     {id:71,group:'J',teams:['Argelia','Austria'],time:'23:00',venue:'Kansas City'},
     {id:72,group:'J',teams:['Jordania','Argentina'],time:'23:00',venue:'Dallas'}]},
-  {date:'Domingo 28 de Junio',matches:[{id:73,stage:'r32',time:'15:00',venue:'Los Ángeles'}]},
+  {date:'Domingo 28 de Junio',matches:[
+    {id:73,stage:'r32',time:'16:00',venue:'Los Ángeles'}]},
   {date:'Lunes 29 de Junio',matches:[
-    {id:74,stage:'r32',time:'18:00',venue:'Boston'},
-    {id:75,stage:'r32',time:'21:00',venue:'Monterrey'},
-    {id:76,stage:'r32',time:'15:00',venue:'Houston'}]},
+    {id:76,stage:'r32',time:'14:00',venue:'Houston'},
+    {id:74,stage:'r32',time:'17:30',venue:'Boston'},
+    {id:75,stage:'r32',time:'22:00',venue:'Monterrey'}]},
   {date:'Martes 30 de Junio',matches:[
+    {id:78,stage:'r32',time:'14:00',venue:'Dallas'},
     {id:77,stage:'r32',time:'18:00',venue:'Nueva York Nueva Jersey'},
-    {id:78,stage:'r32',time:'21:00',venue:'Dallas'},
-    {id:79,stage:'r32',time:'15:00',venue:'Ciudad de México'}]},
+    {id:79,stage:'r32',time:'22:00',venue:'Ciudad de México'}]},
   {date:'Miércoles 1 de Julio',matches:[
-    {id:80,stage:'r32',time:'15:00',venue:'Atlanta'},
-    {id:81,stage:'r32',time:'18:00',venue:'Bahía de San Francisco'},
-    {id:82,stage:'r32',time:'21:00',venue:'Seattle'}]},
+    {id:80,stage:'r32',time:'13:00',venue:'Atlanta'},
+    {id:82,stage:'r32',time:'17:00',venue:'Seattle'},
+    {id:81,stage:'r32',time:'21:00',venue:'Bahía de San Francisco'}]},
   {date:'Jueves 2 de Julio',matches:[
-    {id:83,stage:'r32',time:'15:00',venue:'Toronto'},
-    {id:84,stage:'r32',time:'18:00',venue:'Los Ángeles'},
-    {id:85,stage:'r32',time:'21:00',venue:'BC Place Vancouver'}]},
+    {id:84,stage:'r32',time:'16:00',venue:'Los Ángeles'},
+    {id:83,stage:'r32',time:'20:00',venue:'Toronto'}]},
   {date:'Viernes 3 de Julio',matches:[
-    {id:86,stage:'r32',time:'15:00',venue:'Miami'},
-    {id:87,stage:'r32',time:'18:00',venue:'Kansas City'},
-    {id:88,stage:'r32',time:'21:00',venue:'Dallas'}]},
+    {id:85,stage:'r32',time:'00:00',venue:'BC Place Vancouver'},
+    {id:88,stage:'r32',time:'15:00',venue:'Dallas'},
+    {id:86,stage:'r32',time:'19:00',venue:'Miami'},
+    {id:87,stage:'r32',time:'22:30',venue:'Kansas City'}]},
   {date:'Sábado 4 de Julio',matches:[
-    {id:89,stage:'r16',time:'15:00',venue:'Filadelfia'},
-    {id:90,stage:'r16',time:'18:00',venue:'Houston'}]},
+    {id:89,stage:'r16',time:'14:00',venue:'Houston'},
+    {id:90,stage:'r16',time:'18:00',venue:'Filadelfia'}]},
   {date:'Domingo 5 de Julio',matches:[
-    {id:91,stage:'r16',time:'15:00',venue:'Nueva York Nueva Jersey'},
-    {id:92,stage:'r16',time:'18:00',venue:'Ciudad de México'}]},
+    {id:91,stage:'r16',time:'17:00',venue:'Nueva York Nueva Jersey'},
+    {id:92,stage:'r16',time:'21:00',venue:'Ciudad de México'}]},
   {date:'Lunes 6 de Julio',matches:[
-    {id:93,stage:'r16',time:'15:00',venue:'Dallas'},
-    {id:94,stage:'r16',time:'18:00',venue:'Seattle'}]},
+    {id:93,stage:'r16',time:'16:00',venue:'Dallas'},
+    {id:94,stage:'r16',time:'21:00',venue:'Seattle'}]},
   {date:'Martes 7 de Julio',matches:[
-    {id:95,stage:'r16',time:'15:00',venue:'Atlanta'},
-    {id:96,stage:'r16',time:'18:00',venue:'BC Place Vancouver'}]},
-  {date:'Jueves 9 de Julio',matches:[{id:97,stage:'qf',time:'15:00',venue:'Boston'}]},
-  {date:'Viernes 10 de Julio',matches:[{id:98,stage:'qf',time:'18:00',venue:'Los Ángeles'}]},
+    {id:96,stage:'r16',time:'13:00',venue:'Atlanta'},
+    {id:95,stage:'r16',time:'17:00',venue:'BC Place Vancouver'}]},
+  {date:'Jueves 9 de Julio',matches:[
+    {id:97,stage:'qf',time:'17:00',venue:'Boston'}]},
+  {date:'Viernes 10 de Julio',matches:[
+    {id:98,stage:'qf',time:'16:00',venue:'Los Ángeles'}]},
   {date:'Sábado 11 de Julio',matches:[
-    {id:99,stage:'qf',time:'15:00',venue:'Miami'},
-    {id:100,stage:'qf',time:'18:00',venue:'Kansas City'}]},
-  {date:'Martes 14 de Julio',matches:[{id:101,stage:'sf',time:'18:00',venue:'Dallas'}]},
-  {date:'Miércoles 15 de Julio',matches:[{id:102,stage:'sf',time:'18:00',venue:'Atlanta'}]},
-  {date:'Sábado 18 de Julio',matches:[{id:103,stage:'tp',time:'15:00',venue:'Miami'}]},
-  {date:'Domingo 19 de Julio',matches:[{id:104,stage:'f',time:'15:00',venue:'Nueva York Nueva Jersey'}]}
+    {id:99,stage:'qf',time:'18:00',venue:'Miami'},
+    {id:100,stage:'qf',time:'22:00',venue:'Kansas City'}]},
+  {date:'Martes 14 de Julio',matches:[
+    {id:101,stage:'sf',time:'16:00',venue:'Dallas'}]},
+  {date:'Miércoles 15 de Julio',matches:[
+    {id:102,stage:'sf',time:'16:00',venue:'Atlanta'}]},
+  {date:'Sábado 18 de Julio',matches:[
+    {id:103,stage:'tp',time:'18:00',venue:'Miami'}]},
+  {date:'Domingo 19 de Julio',matches:[
+    {id:104,stage:'f',time:'16:00',venue:'Nueva York Nueva Jersey'}]}
 ];
 
 const SCHEDULE_MAP={};
