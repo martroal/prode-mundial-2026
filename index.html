@@ -169,9 +169,19 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#212
 .hdr-title{flex:0 1 auto;min-width:0;max-width:50%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:900;font-size:.88rem;letter-spacing:.3px}
 .hdr-countdown{margin-left:auto;flex-shrink:0;background:rgba(255,255,255,.15);color:#fff;padding:.28rem .55rem;border-radius:7px;font-size:.7rem;font-weight:700;white-space:nowrap;letter-spacing:.3px;display:flex;align-items:center;gap:.3rem}
 .hdr-countdown b{font-weight:900;font-size:.78rem}
-.hdr-cfg{background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:28px;border-radius:7px;cursor:pointer;font-size:.9rem;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.hdr-cfg{position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:28px;border-radius:7px;cursor:pointer;font-size:.9rem;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .hdr-cfg:active{transform:scale(.92)}
 body.preview-active .hdr-cfg{display:none}
+.hdr-cfg-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--p)}
+/* Notificaciones en config */
+.nt-item{display:flex;gap:.5rem;align-items:flex-start;padding:.5rem .55rem;border-radius:8px;background:#f5f5fa;margin-bottom:.4rem;border:1px solid #eee}
+.nt-item.unread{background:#fff8e1;border-color:#ffe082}
+.nt-ic{font-size:1rem;flex-shrink:0}
+.nt-body{flex:1;min-width:0}
+.nt-txt{font-size:.78rem;color:#222;line-height:1.35}
+.nt-txt b{color:var(--p)}
+.nt-time{font-size:.62rem;color:var(--muted);margin-top:.15rem}
+.nt-empty{text-align:center;color:var(--muted);font-size:.78rem;padding:.6rem}
 .hdr-code{background:rgba(255,255,255,.2);border:none;color:#fff;padding:.28rem .55rem;
   border-radius:7px;font-size:.7rem;font-family:monospace;font-weight:800;cursor:pointer;
   letter-spacing:.5px;flex-shrink:0}
@@ -595,7 +605,7 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
     <div class="hdr-title" id="app-title">...</div>
     <div class="hdr-countdown" id="hdr-countdown" title="Tiempo hasta el Mundial">⏱ <b>--</b></div>
     <button class="hdr-code" id="app-code" onclick="copyCode()" title="Tocá para copiar">📋 ...</button>
-    <button class="hdr-cfg" id="cfg-btn" onclick="openConfig()" title="Mi configuración">⚙️</button>
+    <button class="hdr-cfg" id="cfg-btn" onclick="openConfig()" title="Mi configuración">⚙️<span class="hdr-cfg-badge" id="cfg-badge" style="display:none">0</span></button>
   </div>
   <nav class="nav" id="app-nav">
     <button class="nb active" data-view="preds"    onclick="nav('preds')">📝 Predicciones</button>
@@ -1191,6 +1201,8 @@ let unsubGroup   = null;
 let unsubMembers = null;
 let unsubChat    = null;
 let chatLastCount= 0;
+let unsubNotifs  = null;
+let myNotifs     = [];
 let unsubGlobal  = null;
 let curGroup     = 'A';
 let curDia       = 0;        // índice día activo (fase de grupos)
@@ -1224,10 +1236,13 @@ auth.onAuthStateChanged(user => {
     currentUser = user;
     if (previewMode) exitPreviewMode();
     attachGlobalResults();
+    subscribeNotifs(user.uid);
     showScreen('dashboard');
     loadMyGroups();
   } else {
     if (unsubGlobal) { unsubGlobal(); unsubGlobal = null; }
+    if (unsubNotifs) { unsubNotifs(); unsubNotifs = null; }
+    myNotifs = [];
     globalResults = {};
     currentUser = null;
     enterPreviewMode();
@@ -2136,11 +2151,63 @@ function addProfileComment(uid){
   const text=(input?.value||'').trim();
   if(!text)return;
   input.value='';
+  const fromName=memberName(groupMembers[currentUser.uid])||currentUser.displayName||'Jugador';
   db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
     .collection('comments').add({
-      uid:currentUser.uid,name:memberName(groupMembers[currentUser.uid])||currentUser.displayName||'Jugador',photo:currentUser.photoURL||'',
+      uid:currentUser.uid,name:fromName,photo:currentUser.photoURL||'',
       text:text.slice(0,300),createdAt:firebase.firestore.FieldValue.serverTimestamp()
-    }).then(()=>loadProfileComments(uid)).catch(e=>toast('❌ '+e.message));
+    }).then(()=>{
+      loadProfileComments(uid);
+      // Notificar al dueño del perfil
+      createNotif(uid,{type:'comment',text:`<b>${esc2(fromName)}</b> comentó en tu perfil: "${esc2(text.slice(0,80))}"`,groupName:currentGroup.name||''});
+    }).catch(e=>toast('❌ '+e.message));
+}
+
+/* ═══════════════ NOTIFICACIONES ═══════════════ */
+function subscribeNotifs(uid){
+  if(unsubNotifs){unsubNotifs();unsubNotifs=null;}
+  unsubNotifs=db.collection('users').doc(uid).collection('notifs')
+    .orderBy('createdAt','desc').limit(50)
+    .onSnapshot(snap=>{
+      myNotifs=[];snap.forEach(d=>myNotifs.push({id:d.id,...d.data()}));
+      updateNotifBadge();
+    },()=>{});
+}
+function updateNotifBadge(){
+  const badge=document.getElementById('cfg-badge');
+  if(!badge)return;
+  const unread=myNotifs.filter(n=>!n.read).length;
+  if(unread>0){badge.textContent=unread>9?'9+':unread;badge.style.display='flex';}
+  else badge.style.display='none';
+}
+// Crea una notificación para el usuario `targetUid`
+function createNotif(targetUid,data){
+  if(!currentUser||targetUid===currentUser.uid)return; // no te notificás a vos mismo
+  db.collection('users').doc(targetUid).collection('notifs').add({
+    ...data,read:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+}
+function renderNotifsSection(){
+  if(!myNotifs.length)return'<div class="nt-empty">Sin notificaciones todavía.</div>';
+  return myNotifs.map(n=>{
+    const t=n.createdAt&&n.createdAt.toDate?n.createdAt.toDate().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    const ic=n.type==='comment'?'💬':'🔔';
+    return`<div class="nt-item${n.read?'':' unread'}">
+      <span class="nt-ic">${ic}</span>
+      <div class="nt-body">
+        <div class="nt-txt">${n.text||''}</div>
+        <div class="nt-time">${n.groupName?esc2(n.groupName)+' · ':''}${t}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function markNotifsRead(){
+  if(!currentUser)return;
+  const unread=myNotifs.filter(n=>!n.read);
+  if(!unread.length)return;
+  const batch=db.batch();
+  unread.forEach(n=>batch.update(db.collection('users').doc(currentUser.uid).collection('notifs').doc(n.id),{read:true}));
+  batch.commit().catch(()=>{});
 }
 
 /* ═══════════════ CONFIG DE USUARIO ═══════════════ */
@@ -2169,6 +2236,10 @@ function openConfig(){
       <button class="info-x" onclick="closeMO()">✕</button>
     </div>
     <div class="cfg-sec">
+      <label class="cfg-lbl">🔔 Notificaciones</label>
+      <div style="max-height:170px;overflow-y:auto">${renderNotifsSection()}</div>
+    </div>
+    <div class="cfg-sec">
       <label class="cfg-lbl">Apodo <span class="cfg-opt">(reemplaza tu nombre)</span></label>
       <input class="fi" id="cfg-nick" maxlength="24" value="${nick}" placeholder="${(currentUser.displayName||'').replace(/"/g,'&quot;')}" oninput="updateCfgPreview()">
     </div>
@@ -2191,6 +2262,7 @@ function openConfig(){
   `;
   updateCfgPreview();
   document.getElementById('mo').classList.add('open');
+  markNotifsRead(); // al abrir config, las notificaciones quedan leídas
 }
 
 function pickEmoji(e){
