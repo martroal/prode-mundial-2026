@@ -421,6 +421,46 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .info-footer:hover{color:var(--p)}
 .info-footer:active{opacity:.7}
 
+/* CHAT del grupo */
+.chat-fab{position:fixed;right:max(1rem,calc(env(safe-area-inset-right) + .5rem));bottom:max(1rem,calc(env(safe-area-inset-bottom) + 1rem));width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 16px rgba(26,35,126,.4);z-index:400;display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.chat-fab:hover{transform:scale(1.06)}
+.chat-fab:active{transform:scale(.94)}
+body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!important}
+.chat-fab-badge{position:absolute;top:-2px;right:-2px;background:var(--red);color:#fff;font-size:.62rem;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
+.chat-panel{position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));width:min(380px,calc(100vw - 1.5rem));height:min(70vh,520px);background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);z-index:401;display:none;flex-direction:column;overflow:hidden;border:1px solid var(--border)}
+.chat-panel.open{display:flex}
+.chat-hdr{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:.75rem 1rem;font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.chat-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center}
+.chat-msgs{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;background:#f7f7fb}
+.chat-msg{display:flex;gap:.5rem;align-items:flex-start;max-width:88%}
+.chat-msg.mine{align-self:flex-end;flex-direction:row-reverse}
+.chat-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;object-fit:cover}
+.chat-av-ph{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.75rem;flex-shrink:0}
+.chat-bub{background:#fff;border-radius:12px;padding:.4rem .6rem;box-shadow:0 1px 2px rgba(0,0,0,.08);min-width:0}
+.chat-msg.mine .chat-bub{background:#e3f2fd}
+.chat-bub-name{font-size:.66rem;font-weight:800;color:var(--p);margin-bottom:.1rem}
+.chat-msg.mine .chat-bub-name{text-align:right}
+.chat-bub-txt{font-size:.82rem;color:#222;word-wrap:break-word;line-height:1.35}
+.chat-bub-time{font-size:.58rem;color:var(--muted);margin-top:.15rem;text-align:right}
+.chat-empty{text-align:center;color:var(--muted);font-size:.8rem;margin:auto;padding:1rem}
+.chat-input-row{display:flex;gap:.4rem;padding:.6rem;border-top:1px solid var(--border);background:#fff;flex-shrink:0}
+.chat-input{flex:1;border:2px solid var(--border);border-radius:20px;padding:.5rem .85rem;font-size:.85rem;outline:none}
+.chat-input:focus{border-color:var(--p)}
+.chat-send{background:var(--p);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:1rem;flex-shrink:0}
+.chat-send:active{transform:scale(.92)}
+@media(max-width:480px){.chat-panel{width:calc(100vw - 1rem);height:75vh;right:.5rem;bottom:.5rem}}
+
+/* COMENTARIOS en perfil */
+.pc-list{display:flex;flex-direction:column;gap:.45rem;max-height:160px;overflow-y:auto;margin-bottom:.5rem}
+.pc-item{background:#fff;border-radius:8px;padding:.4rem .55rem;border:1px solid #eee}
+.pc-item-h{font-size:.66rem;font-weight:800;color:var(--p);display:flex;justify-content:space-between;align-items:center}
+.pc-item-h .pc-time{color:var(--muted);font-weight:500;font-size:.6rem}
+.pc-item-t{font-size:.78rem;color:#333;margin-top:.15rem;word-wrap:break-word;line-height:1.35}
+.pc-input-row{display:flex;gap:.4rem}
+.pc-input{flex:1;border:2px solid var(--border);border-radius:8px;padding:.4rem .6rem;font-size:.8rem;outline:none}
+.pc-input:focus{border-color:var(--p)}
+.pc-send{background:var(--p);color:#fff;border:none;padding:0 .8rem;border-radius:8px;cursor:pointer;font-weight:800;font-size:.78rem}
+
 /* INFO MODAL */
 .info-h{font-size:1.15rem;font-weight:900;color:var(--p);margin:0}
 .info-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);padding:.25rem .5rem;line-height:1}
@@ -682,6 +722,20 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
   </div>
 
   <button class="info-footer" onclick="openInfoModal()">ℹ️ Preguntas frecuentes · Privacidad · Acerca</button>
+
+  <!-- CHAT del grupo -->
+  <button class="chat-fab" id="chat-fab" onclick="toggleChat()" title="Chat del grupo">💬<span class="chat-fab-badge" id="chat-badge" style="display:none">0</span></button>
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-hdr">
+      <span>💬 Chat del grupo</span>
+      <button class="chat-close" onclick="toggleChat()">✕</button>
+    </div>
+    <div class="chat-msgs" id="chat-msgs"></div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-input" type="text" maxlength="500" placeholder="Escribí un mensaje..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">➤</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL INPUT (crear/unirse) -->
@@ -1120,6 +1174,8 @@ let groupMembers = {};     // { uid: { displayName, photoURL, predictions, isBot
 let globalResults = {};    // resultados reales globales del Mundial (compartidos por todos los grupos)
 let unsubGroup   = null;
 let unsubMembers = null;
+let unsubChat    = null;
+let chatLastCount= 0;
 let unsubGlobal  = null;
 let curGroup     = 'A';
 let curDia       = 0;        // índice día activo (fase de grupos)
@@ -1352,6 +1408,7 @@ function enterGroup(groupId){
     snap.forEach(d=>{groupMembers[d.id]=d.data();});
     renderCurrentView();
   });
+  subscribeChat(groupId);
 }
 
 function leavGroup(){
@@ -1364,9 +1421,82 @@ function leavGroup(){
 function detach(){
   if(unsubGroup){unsubGroup();unsubGroup=null;}
   if(unsubMembers){unsubMembers();unsubMembers=null;}
+  if(unsubChat){unsubChat();unsubChat=null;}
   Object.values(pendingWrites).forEach(clearTimeout);
   pendingWrites={};
   if(espnAutoTimer){clearInterval(espnAutoTimer);espnAutoTimer=null;}
+  document.getElementById('chat-panel')?.classList.remove('open');
+  chatLastCount=0;
+}
+
+/* ═══════════════ CHAT DEL GRUPO ═══════════════ */
+function subscribeChat(groupId){
+  if(unsubChat){unsubChat();unsubChat=null;}
+  unsubChat=db.collection('grupos').doc(groupId).collection('chat')
+    .orderBy('createdAt','asc').limitToLast(150)
+    .onSnapshot(snap=>{
+      const msgs=[];snap.forEach(d=>msgs.push(d.data()));
+      renderChat(msgs);
+    },()=>{});
+}
+
+function renderChat(msgs){
+  const el=document.getElementById('chat-msgs');
+  if(!el)return;
+  const panelOpen=document.getElementById('chat-panel')?.classList.contains('open');
+  if(!msgs.length){el.innerHTML='<div class="chat-empty">Todavía no hay mensajes.<br>¡Rompé el hielo! 👋</div>';chatLastCount=0;return;}
+  const nearBottom=el.scrollHeight-el.scrollTop-el.clientHeight<60;
+  el.innerHTML=msgs.map(m=>{
+    const mine=m.uid===currentUser?.uid;
+    const color=avatarColor(m.name||'?');
+    const av=m.photo?`<img class="chat-av" src="${m.photo}" alt="">`:`<div class="chat-av-ph" style="background:${color}">${(m.name||'?')[0].toUpperCase()}</div>`;
+    const t=m.createdAt&&m.createdAt.toDate?m.createdAt.toDate().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+    return`<div class="chat-msg${mine?' mine':''}">
+      ${av}
+      <div class="chat-bub">
+        ${mine?'':`<div class="chat-bub-name">${esc2(m.name||'?')}</div>`}
+        <div class="chat-bub-txt">${esc2(m.text||'')}</div>
+        <div class="chat-bub-time">${t}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // Auto-scroll si el panel está abierto y estabas cerca del fondo (o es mensaje nuevo)
+  if(panelOpen&&(nearBottom||msgs.length!==chatLastCount)){el.scrollTop=el.scrollHeight;}
+  // Badge de no leídos cuando el panel está cerrado
+  const badge=document.getElementById('chat-badge');
+  if(!panelOpen&&msgs.length>chatLastCount&&chatLastCount>0){
+    const n=msgs.length-chatLastCount;
+    if(badge){badge.textContent=n>9?'9+':n;badge.style.display='flex';}
+  }
+  chatLastCount=msgs.length;
+}
+
+function esc2(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function toggleChat(){
+  const panel=document.getElementById('chat-panel');
+  if(!panel)return;
+  const open=panel.classList.toggle('open');
+  if(open){
+    const badge=document.getElementById('chat-badge');if(badge)badge.style.display='none';
+    const el=document.getElementById('chat-msgs');if(el)setTimeout(()=>{el.scrollTop=el.scrollHeight;},30);
+    setTimeout(()=>document.getElementById('chat-input')?.focus(),50);
+  }
+}
+
+function sendChat(){
+  if(!currentUser||!currentGroup||previewMode)return;
+  const input=document.getElementById('chat-input');
+  const text=(input?.value||'').trim();
+  if(!text)return;
+  input.value='';
+  db.collection('grupos').doc(currentGroup.id).collection('chat').add({
+    uid:currentUser.uid,
+    name:currentUser.displayName||'Jugador',
+    photo:currentUser.photoURL||'',
+    text:text.slice(0,500),
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(e=>toast('❌ '+e.message));
 }
 
 function copyCode(){
@@ -1952,12 +2082,50 @@ function showProfile(uid){
           return`<div><div style="font-size:1rem">${t?t.f:icons[i]}</div><div style="font-size:.67rem;font-weight:700">${labels[i]}</div><div style="font-size:.68rem;color:var(--muted)">${val}</div></div>`}).join('')}
       </div>
     </div>
+    <div style="background:#f5f5f5;border-radius:10px;padding:.75rem;margin-bottom:.85rem">
+      <div style="font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:.45rem;text-transform:uppercase">💬 Comentarios</div>
+      <div class="pc-list" id="pc-list"><div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.3rem">Cargando...</div></div>
+      <div class="pc-input-row">
+        <input class="pc-input" id="pc-input" type="text" maxlength="300" placeholder="Dejá un comentario..." onkeydown="if(event.key==='Enter')addProfileComment('${esc(uid)}')">
+        <button class="pc-send" onclick="addProfileComment('${esc(uid)}')">Enviar</button>
+      </div>
+    </div>
     <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">📋 Predicciones por grupo</div>
     ${groupsHTML}
   `;
   document.getElementById('mo').classList.add('open');
+  loadProfileComments(uid);
 }
 function closeMO(){document.getElementById('mo').classList.remove('open');}
+
+/* ═══════════════ COMENTARIOS EN PERFIL ═══════════════ */
+async function loadProfileComments(uid){
+  const el=document.getElementById('pc-list');
+  if(!el||!currentGroup||previewMode)return;
+  try{
+    const snap=await db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
+      .collection('comments').orderBy('createdAt','asc').limitToLast(50).get();
+    const cs=[];snap.forEach(d=>cs.push(d.data()));
+    if(!cs.length){el.innerHTML='<div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.3rem">Sin comentarios todavía. ¡Sé el primero!</div>';return;}
+    el.innerHTML=cs.map(c=>{
+      const t=c.createdAt&&c.createdAt.toDate?c.createdAt.toDate().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+      return`<div class="pc-item"><div class="pc-item-h"><span>${esc2(c.name||'?')}</span><span class="pc-time">${t}</span></div><div class="pc-item-t">${esc2(c.text||'')}</div></div>`;
+    }).join('');
+    el.scrollTop=el.scrollHeight;
+  }catch(e){el.innerHTML='<div style="font-size:.72rem;color:var(--red);padding:.3rem">Error cargando comentarios</div>';}
+}
+function addProfileComment(uid){
+  if(!currentUser||!currentGroup||previewMode)return;
+  const input=document.getElementById('pc-input');
+  const text=(input?.value||'').trim();
+  if(!text)return;
+  input.value='';
+  db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
+    .collection('comments').add({
+      uid:currentUser.uid,name:currentUser.displayName||'Jugador',photo:currentUser.photoURL||'',
+      text:text.slice(0,300),createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>loadProfileComments(uid)).catch(e=>toast('❌ '+e.message));
+}
 
 // Helper: convierte nombre del schedule (remix22) a "flag + nombre corto" usando ALL_TEAMS
 function teamWithFlag(remixName){
