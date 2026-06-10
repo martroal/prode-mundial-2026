@@ -1707,12 +1707,27 @@ function predsCount(uid){
   }).length;
 }
 
+/* Un partido "terminó": tiene resultado real cargado, o ya pasaron +2.5h del kickoff (ARG, GMT-3) */
+function matchEndedReal(matchId){
+  const r=globalResults?.[matchId];
+  if(r&&r.h!==undefined&&r.h!=='')return true;
+  const s=SCHEDULE_MAP[matchId];
+  if(!s)return false;
+  const parts=s.date.split(' de ');
+  const month=parts[1]==='Julio'?'07':'06';
+  const day=String(parseInt(parts[0].split(' ').slice(-1)[0])||1).padStart(2,'0');
+  const ko=new Date(`2026-${month}-${day}T${s.time||'00:00'}:00-03:00`).getTime();
+  return Date.now()>ko+150*60000;
+}
+
 /* ═══════════════ PROFILE MODAL ═══════════════ */
 function showProfile(uid){
   const mem=groupMembers[uid];if(!mem)return;
   const sc=score(uid);
   const pred=mem.predictions||{};
   const isBot=mem.isBot,isOwner=uid===currentGroup?.ownerUid&&!isBot,isMe=uid===currentUser?.uid&&!isBot;
+  // Si es otro jugador, ocultar sus predicciones de partidos que todavía no terminaron (anti-copia)
+  const lock=!isMe;
   const color=avatarColor(mem.displayName);
   const photo=mem.photoURL&&!isBot?`<img class="avatar" style="width:48px;height:48px" src="${mem.photoURL}" alt="">`
     :`<div class="avatar-ph" style="width:48px;height:48px;font-size:1.3rem;background:${color}">${isBot?'🤖':mem.displayName[0].toUpperCase()}</div>`;
@@ -1721,26 +1736,29 @@ function showProfile(uid){
     const gm=MATCHES.filter(m=>m.group===g);
     const gwPred=pred['gw_'+g];
     const gwTeam=gwPred?GROUPS[g].teams.find(t=>t.n===gwPred):null;
+    const gwRevealed=!lock||isGroupComplete(g,globalResults);
     const rows=gm.map(m=>{
       const p=pred[m.id]||{},r=globalResults?.[m.id];
+      const revealed=!lock||matchEndedReal(m.id);
       let ind='',cls='';
-      if(r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
+      if(revealed&&r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
         const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
         if(+p.h===r.h&&+p.a===r.a){ind='★★★';cls='ie';}
         else if(po===ro){ind='★';cls='ir';}
         else{ind='✗';cls='iw';}
       }
       const hasP=p.h!==undefined&&p.h!=='';
+      const predCell=revealed?(hasP?`${p.h}-${p.a}`:'?'):'<span title="Se revela cuando termine el partido">🔒</span>';
       return`<div class="ppr">
         <span class="ppr-m">${m.home.f} ${m.home.n} vs ${m.away.n} ${m.away.f}</span>
-        <span class="ppr-s">${hasP?`${p.h}-${p.a}`:'?'}</span>
+        <span class="ppr-s">${predCell}</span>
         <span class="ppr-i"><span class="${cls}">${ind}</span>${(r&&r.h!==undefined)?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
       </div>`;
     }).join('');
     return`<div style="margin-bottom:.7rem">
       <div style="font-size:.75rem;font-weight:800;color:var(--p);margin-bottom:.3rem;display:flex;align-items:center;gap:.35rem">
         <span class="gbadge">${g}</span>${GROUPS[g].teams.map(t=>t.f).join('')}
-        ${gwTeam?`<span style="margin-left:auto;font-size:.7rem;color:var(--muted)">Gana: ${gwTeam.f} ${gwTeam.n}</span>`:''}
+        ${gwTeam&&gwRevealed?`<span style="margin-left:auto;font-size:.7rem;color:var(--muted)">Gana: ${gwTeam.f} ${gwTeam.n}</span>`:(gwPred&&!gwRevealed?'<span style="margin-left:auto;font-size:.7rem;color:var(--muted)">Gana: 🔒</span>':'')}
       </div>${rows}</div>`;
   }).join('');
 
@@ -1772,8 +1790,11 @@ function showProfile(uid){
     <div style="background:#f5f5f5;border-radius:10px;padding:.75rem;margin-bottom:.85rem">
       <div style="font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase">Picks especiales</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.3rem;text-align:center">
-        ${['champion','runnerUp','thirdPlace'].map((k,i)=>{const icons=['🏆','🥈','🥉'],labels=['Campeón','Sub','3ro'];const t=pred[k]?ALL_TEAMS.find(x=>x.n===pred[k]):null;
-          return`<div><div style="font-size:1rem">${t?t.f:icons[i]}</div><div style="font-size:.67rem;font-weight:700">${labels[i]}</div><div style="font-size:.68rem;color:var(--muted)">${pred[k]||'?'}</div></div>`}).join('')}
+        ${['champion','runnerUp','thirdPlace'].map((k,i)=>{const icons=['🏆','🥈','🥉'],labels=['Campeón','Sub','3ro'];
+          const rev=!lock||matchEndedReal(k==='thirdPlace'?'tp_1':'f_1');
+          const t=(rev&&pred[k])?ALL_TEAMS.find(x=>x.n===pred[k]):null;
+          const val=rev?(pred[k]||'?'):'🔒';
+          return`<div><div style="font-size:1rem">${t?t.f:icons[i]}</div><div style="font-size:.67rem;font-weight:700">${labels[i]}</div><div style="font-size:.68rem;color:var(--muted)">${val}</div></div>`}).join('')}
       </div>
     </div>
     <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">📋 Predicciones por grupo</div>
