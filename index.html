@@ -169,6 +169,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#212
 .hdr-title{flex:0 1 auto;min-width:0;max-width:50%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:900;font-size:.88rem;letter-spacing:.3px}
 .hdr-countdown{margin-left:auto;flex-shrink:0;background:rgba(255,255,255,.15);color:#fff;padding:.28rem .55rem;border-radius:7px;font-size:.7rem;font-weight:700;white-space:nowrap;letter-spacing:.3px;display:flex;align-items:center;gap:.3rem}
 .hdr-countdown b{font-weight:900;font-size:.78rem}
+.hdr-cfg{background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:28px;border-radius:7px;cursor:pointer;font-size:.9rem;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.hdr-cfg:active{transform:scale(.92)}
+body.preview-active .hdr-cfg{display:none}
 .hdr-code{background:rgba(255,255,255,.2);border:none;color:#fff;padding:.28rem .55rem;
   border-radius:7px;font-size:.7rem;font-family:monospace;font-weight:800;cursor:pointer;
   letter-spacing:.5px;flex-shrink:0}
@@ -461,6 +464,17 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
 .pc-input:focus{border-color:var(--p)}
 .pc-send{background:var(--p);color:#fff;border:none;padding:0 .8rem;border-radius:8px;cursor:pointer;font-weight:800;font-size:.78rem}
 
+/* CONFIG de usuario */
+.cfg-sec{margin-bottom:.9rem}
+.cfg-lbl{display:block;font-size:.78rem;font-weight:800;color:var(--p);margin-bottom:.35rem}
+.cfg-opt{color:var(--muted);font-weight:500;font-size:.7rem}
+.cfg-preview{font-size:.8rem;color:#333;background:#f5f5fa;border-radius:8px;padding:.45rem .6rem;margin-bottom:.5rem;text-align:center}
+.cfg-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:.3rem}
+.cfg-emoji{aspect-ratio:1;border:2px solid var(--border);background:#fff;border-radius:8px;font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .1s}
+.cfg-emoji:hover{background:#f3e5f5;border-color:#ce93d8}
+.cfg-emoji.sel{background:var(--p);border-color:var(--p);transform:scale(1.05)}
+@media(max-width:380px){.cfg-emoji-grid{grid-template-columns:repeat(6,1fr)}}
+
 /* INFO MODAL */
 .info-h{font-size:1.15rem;font-weight:900;color:var(--p);margin:0}
 .info-x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);padding:.25rem .5rem;line-height:1}
@@ -581,6 +595,7 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
     <div class="hdr-title" id="app-title">...</div>
     <div class="hdr-countdown" id="hdr-countdown" title="Tiempo hasta el Mundial">⏱ <b>--</b></div>
     <button class="hdr-code" id="app-code" onclick="copyCode()" title="Tocá para copiar">📋 ...</button>
+    <button class="hdr-cfg" id="cfg-btn" onclick="openConfig()" title="Mi configuración">⚙️</button>
   </div>
   <nav class="nav" id="app-nav">
     <button class="nb active" data-view="preds"    onclick="nav('preds')">📝 Predicciones</button>
@@ -1492,7 +1507,7 @@ function sendChat(){
   input.value='';
   db.collection('grupos').doc(currentGroup.id).collection('chat').add({
     uid:currentUser.uid,
-    name:currentUser.displayName||'Jugador',
+    name:memberName(groupMembers[currentUser.uid])||currentUser.displayName||'Jugador',
     photo:currentUser.photoURL||'',
     text:text.slice(0,500),
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
@@ -1938,7 +1953,7 @@ function renderTabla(){
   if(!uids.length){document.getElementById('tabla-c').innerHTML='<p style="color:var(--muted);font-size:.83rem;padding:.5rem">Sin jugadores aún.</p>';return;}
   const scores=uids.map(uid=>({uid,...score(uid,simMode),
     preds:predsCount(uid),
-    name:groupMembers[uid].displayName,
+    name:memberName(groupMembers[uid]),
     photo:groupMembers[uid].photoURL,
     isBot:groupMembers[uid].isBot}))
     .sort((a,b)=>b.total-a.total||b.preds-a.preds);
@@ -2052,11 +2067,12 @@ function showProfile(uid){
       ${photo}
       <div style="flex:1">
         <div style="font-size:1.05rem;font-weight:900;display:flex;align-items:center;gap:.3rem;flex-wrap:wrap">
-          ${mem.displayName}
+          ${memberName(mem)}
           ${isOwner?'<span class="tag tag-owner">👑 Dueño</span>':''}
           ${isBot?'<span class="tag tag-bot">BOT</span>':''}
           ${isMe?'<span class="tag tag-you">vos</span>':''}
         </div>
+        ${(mem.favTeam||mem.bio)?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">${mem.favTeam?`Banca ${ALL_TEAMS.find(t=>t.n===mem.favTeam)?.f||''} ${mem.favTeam}`:''}${(mem.favTeam&&mem.bio)?' · ':''}${mem.bio?`<i>"${esc2(mem.bio)}"</i>`:''}</div>`:''}
         <div style="font-size:.73rem;color:var(--muted);margin-top:2px">${sc.total} pts · ${sc.exact} exactos · ${sc.r} result. · ${sc.bonus} bonus</div>
       </div>
       <button onclick="closeMO()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted)">✕</button>
@@ -2122,9 +2138,94 @@ function addProfileComment(uid){
   input.value='';
   db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)
     .collection('comments').add({
-      uid:currentUser.uid,name:currentUser.displayName||'Jugador',photo:currentUser.photoURL||'',
+      uid:currentUser.uid,name:memberName(groupMembers[currentUser.uid])||currentUser.displayName||'Jugador',photo:currentUser.photoURL||'',
       text:text.slice(0,300),createdAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(()=>loadProfileComments(uid)).catch(e=>toast('❌ '+e.message));
+}
+
+/* ═══════════════ CONFIG DE USUARIO ═══════════════ */
+const CONFIG_EMOJIS=['⚽','🏆','🔥','💪','😎','🤡','👑','🐐','🦁','🐉','🚀','💎','🎯','🍀','🎲','⭐','🥇','🤖','👽','🎩','🦅','🐺','🦈','🌟','😈','🥶','🤠','👾','🎸','🍻','❤️','💀'];
+let cfgEmoji='';
+
+// Nombre a mostrar de un miembro: (apodo || nombre) + emoji
+function memberName(m){
+  if(!m)return '?';
+  const base=m.nickname||m.displayName||'Jugador';
+  return m.emoji?`${base} ${m.emoji}`:base;
+}
+
+function openConfig(){
+  if(!currentUser||!currentGroup||previewMode)return;
+  const me=groupMembers[currentUser.uid]||{};
+  cfgEmoji=me.emoji||'';
+  const nick=(me.nickname||'').replace(/"/g,'&quot;');
+  const bio=(me.bio||'').replace(/"/g,'&quot;');
+  const fav=me.favTeam||'';
+  const emojiGrid=CONFIG_EMOJIS.map(e=>`<button class="cfg-emoji${e===cfgEmoji?' sel':''}" onclick="pickEmoji('${e}')">${e}</button>`).join('');
+  const teamOpts=ALL_TEAMS.map(t=>`<option value="${t.n}"${t.n===fav?' selected':''}>${t.f} ${t.n}</option>`).join('');
+  document.getElementById('mo-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:2px solid var(--border)">
+      <h2 class="info-h">⚙️ Mi configuración</h2>
+      <button class="info-x" onclick="closeMO()">✕</button>
+    </div>
+    <div class="cfg-sec">
+      <label class="cfg-lbl">Apodo <span class="cfg-opt">(reemplaza tu nombre)</span></label>
+      <input class="fi" id="cfg-nick" maxlength="24" value="${nick}" placeholder="${(currentUser.displayName||'').replace(/"/g,'&quot;')}" oninput="updateCfgPreview()">
+    </div>
+    <div class="cfg-sec">
+      <label class="cfg-lbl">Emoji <span class="cfg-opt">(va al final de tu nombre)</span></label>
+      <div class="cfg-preview" id="cfg-preview"></div>
+      <div class="cfg-emoji-grid">${emojiGrid}</div>
+      <button class="btn bbl bblock" style="margin-top:.4rem;font-size:.75rem" onclick="pickEmoji('')">Sin emoji</button>
+    </div>
+    <div class="cfg-sec">
+      <label class="cfg-lbl">Equipo favorito <span class="cfg-opt">(opcional)</span></label>
+      <select class="fi" id="cfg-fav"><option value="">– Ninguno –</option>${teamOpts}</select>
+    </div>
+    <div class="cfg-sec">
+      <label class="cfg-lbl">Frase / estado <span class="cfg-opt">(opcional)</span></label>
+      <input class="fi" id="cfg-bio" maxlength="80" value="${bio}" placeholder="Ej: Vamos que se puede 🇦🇷">
+    </div>
+    <button class="btn bp bblock" onclick="saveConfig()">💾 Guardar</button>
+    <button class="btn br bblock" style="margin-top:.5rem" onclick="signOut()">🚪 Cerrar sesión</button>
+  `;
+  updateCfgPreview();
+  document.getElementById('mo').classList.add('open');
+}
+
+function pickEmoji(e){
+  cfgEmoji=e;
+  document.querySelectorAll('.cfg-emoji').forEach(b=>b.classList.toggle('sel',b.textContent===e));
+  updateCfgPreview();
+}
+function updateCfgPreview(){
+  const el=document.getElementById('cfg-preview');if(!el)return;
+  const nick=(document.getElementById('cfg-nick')?.value||'').trim()||currentUser.displayName||'Jugador';
+  el.innerHTML=`Te verás como: <b>${esc2(nick)}${cfgEmoji?' '+cfgEmoji:''}</b>`;
+}
+
+async function saveConfig(){
+  if(!currentUser||!currentGroup||previewMode)return;
+  const nick=(document.getElementById('cfg-nick')?.value||'').trim().slice(0,24);
+  const bio=(document.getElementById('cfg-bio')?.value||'').trim().slice(0,80);
+  const fav=document.getElementById('cfg-fav')?.value||'';
+  const D=firebase.firestore.FieldValue.delete();
+  const data={
+    emoji:cfgEmoji||D,
+    nickname:nick||D,
+    bio:bio||D,
+    favTeam:fav||D
+  };
+  try{
+    const gsnap=await db.collection('users').doc(currentUser.uid).collection('groups').get();
+    const ids=gsnap.docs.map(d=>d.id);
+    if(!ids.includes(currentGroup.id))ids.push(currentGroup.id);
+    const batch=db.batch();
+    ids.forEach(gid=>batch.set(db.collection('grupos').doc(gid).collection('members').doc(currentUser.uid),data,{merge:true}));
+    await batch.commit();
+    toast('✅ Configuración guardada');
+    closeMO();
+  }catch(e){toast('❌ '+e.message);}
 }
 
 // Helper: convierte nombre del schedule (remix22) a "flag + nombre corto" usando ALL_TEAMS
@@ -2801,7 +2902,7 @@ async function renderPanel(){
         if(filled>=MATCHES.length)usersComplete++;
         sumCompletion+=filled/MATCHES.length;
         if(pred.champion)champTally[pred.champion]=(champTally[pred.champion]||0)+1;
-        const u=userMap[m.uid]||(userMap[m.uid]={name:m.displayName||'?',photo:m.photoURL||'',groups:0,preds:0,owner:false});
+        const u=userMap[m.uid]||(userMap[m.uid]={name:memberName(m),photo:m.photoURL||'',groups:0,preds:0,owner:false});
         u.groups++;
         if(filled>u.preds)u.preds=filled;
         if(g.ownerUid===m.uid)u.owner=true;
