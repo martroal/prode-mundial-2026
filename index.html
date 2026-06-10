@@ -454,6 +454,23 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .cal-pill{background:#ede7f6;color:var(--p);padding:.3rem .65rem;border-radius:14px;font-weight:700;font-size:.72rem;letter-spacing:.2px;white-space:nowrap}
 .cal-pill-link{margin-left:auto;text-decoration:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;transition:transform .12s}
 .cal-pill-link:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(26,35,126,.25)}
+
+/* PANEL DE CONTROL */
+.pk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.85rem}
+.pk{background:#fff;border:1px solid var(--border);border-radius:12px;padding:.7rem .5rem;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.pk-i{font-size:1.3rem;line-height:1}
+.pk-v{font-size:1.4rem;font-weight:900;margin:.15rem 0;line-height:1}
+.pk-l{font-size:.62rem;color:var(--muted);font-weight:600;line-height:1.2}
+.pstat{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid #f0f0f5;font-size:.8rem}
+.pstat:last-child{border-bottom:none}
+.pstat span{color:#555}
+.pstat b{color:var(--p);font-weight:800}
+.pbar-row{display:grid;grid-template-columns:1fr 2fr auto;gap:.5rem;align-items:center;margin-bottom:.45rem;font-size:.76rem}
+.pbar-lbl{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbar-track{background:#eee;border-radius:6px;height:14px;overflow:hidden}
+.pbar-fill{background:linear-gradient(90deg,var(--p),var(--p2));height:100%;border-radius:6px}
+.pbar-n{font-weight:700;color:var(--muted);font-size:.7rem;white-space:nowrap}
+@media(max-width:380px){.pk-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -526,6 +543,7 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
     <button class="nb"        data-view="bracket"  onclick="nav('bracket')">🏆 Campeón</button>
     <button class="nb"        data-view="tabla"    onclick="nav('tabla')">🏅 Tabla</button>
     <button class="nb"        data-view="horarios" onclick="nav('horarios')">📅 Horarios</button>
+    <button class="nb"        data-view="panel"    id="panel-tab" style="display:none" onclick="nav('panel')">📊 Panel</button>
     <button class="nb"        data-view="admin"    id="admin-tab" style="display:none" onclick="nav('admin')">⚙️ Admin</button>
   </nav>
 
@@ -593,6 +611,13 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
   </div>
   <div class="view" id="view-horarios">
     <div id="horarios-c"></div>
+  </div>
+  <div class="view" id="view-panel">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem">
+      <div style="flex:1;font-weight:800;font-size:.9rem;color:var(--p)">📊 Panel de control</div>
+      <button class="btn bbl" style="padding:.3rem .65rem;font-size:.72rem" onclick="renderPanel()">🔄 Actualizar</button>
+    </div>
+    <div id="panel-c"></div>
   </div>
   <div class="view" id="view-admin">
     <!-- ESPN Sync -->
@@ -1306,6 +1331,7 @@ function enterGroup(groupId){
     document.getElementById('app-code').textContent=`📋 ${currentGroup.code}`;
     // Show admin tab only for super-admin
     document.getElementById('admin-tab').style.display=isSuperAdmin()?'block':'none';
+    document.getElementById('panel-tab').style.display=isSuperAdmin()?'block':'none';
     renderCurrentView();
   });
   // Listener: members
@@ -1357,7 +1383,7 @@ function renderCurrentView(){
     if(viewEl&&viewEl.contains(active))return;
   }
   ({preds:renderPreds,torneo:renderTorneo,bracket:renderBracket,tabla:renderTabla,
-    horarios:renderHorarios,admin:renderAdmin})[curView]?.();
+    horarios:renderHorarios,admin:renderAdmin,panel:renderPanel})[curView]?.();
 }
 
 /* ═══════════════ MY PREDICTIONS ═══════════════ */
@@ -2427,6 +2453,112 @@ function removeBots(){
   toast(`🗑️ ${bots.length} bots eliminados`);
 }
 
+/* ═══════════════ PANEL DE CONTROL (admin) ═══════════════ */
+function bumpVisit(){
+  try{
+    db.collection('stats').doc('counters').set({
+      pageViews: firebase.firestore.FieldValue.increment(1),
+      lastVisit: firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true}).catch(()=>{});
+  }catch(e){}
+}
+
+async function renderPanel(){
+  if(!isSuperAdmin())return;
+  const el=document.getElementById('panel-c');
+  if(!el)return;
+  el.innerHTML='<div class="empty"><div class="loader" style="margin:0 auto .6rem"></div><p>Cargando métricas...</p></div>';
+  try{
+    // Visitas
+    let pageViews='—';
+    try{const c=await db.collection('stats').doc('counters').get();if(c.exists)pageViews=(c.data().pageViews||0).toLocaleString('es-AR');}catch(e){}
+    // Grupos + members
+    const gsnap=await db.collection('grupos').get();
+    const groups=[];
+    for(const doc of gsnap.docs){
+      const ms=await doc.ref.collection('members').get();
+      groups.push({id:doc.id,...doc.data(),members:ms.docs.map(d=>({uid:d.id,...d.data()}))});
+    }
+    // Métricas
+    const now=Date.now();
+    const realUsers=new Set(),botCount={n:0};
+    let totalMembers=0,totalPreds=0,usersWithPred=0,usersComplete=0,sumCompletion=0,realMemberCount=0;
+    const champTally={};
+    let biggest={name:'—',n:0};
+    let new24=0,new7=0;
+    groups.forEach(g=>{
+      const realMs=g.members.filter(m=>!m.isBot);
+      if(g.members.length>biggest.n)biggest={name:g.name,n:g.members.length};
+      const created=g.createdAt&&g.createdAt.toMillis?g.createdAt.toMillis():0;
+      if(created){if(now-created<864e5)new24++;if(now-created<6048e5)new7++;}
+      g.members.forEach(m=>{
+        totalMembers++;
+        if(m.isBot){botCount.n++;return;}
+        realUsers.add(m.uid);
+        realMemberCount++;
+        const pred=m.predictions||{};
+        const filled=MATCHES.filter(mt=>{const p=pred[mt.id];return p&&p.h!==undefined&&p.h!=='';}).length;
+        totalPreds+=filled;
+        if(filled>0)usersWithPred++;
+        if(filled>=MATCHES.length)usersComplete++;
+        sumCompletion+=filled/MATCHES.length;
+        if(pred.champion)champTally[pred.champion]=(champTally[pred.champion]||0)+1;
+      });
+    });
+    const uniqueUsers=realUsers.size;
+    const avgPerGroup=groups.length?(totalMembers/groups.length).toFixed(1):'0';
+    const avgCompletion=realMemberCount?Math.round(sumCompletion/realMemberCount*100):0;
+    const playedMatches=MATCHES.filter(m=>{const r=globalResults?.[m.id];return r&&r.h!==undefined;}).length;
+    const koPlayed=KO_MATCHES.filter(m=>{const r=globalResults?.[m.id];return r&&r.h!==undefined;}).length;
+    // Top campeones
+    const champTotal=Object.values(champTally).reduce((s,v)=>s+v,0);
+    const topChamps=Object.entries(champTally).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    const kpi=(icon,val,label,color)=>`<div class="pk"><div class="pk-i">${icon}</div><div class="pk-v" style="color:${color||'var(--p)'}">${val}</div><div class="pk-l">${label}</div></div>`;
+    let html=`<div class="pk-grid">
+      ${kpi('👥',uniqueUsers,'Usuarios únicos')}
+      ${kpi('🏟️',groups.length,'Grupos')}
+      ${kpi('👁️',pageViews,'Cargas de página')}
+      ${kpi('🧑‍🤝‍🧑',totalMembers,'Membresías')}
+      ${kpi('📊',avgPerGroup,'Prom. por grupo')}
+      ${kpi('🤖',botCount.n,'Bots')}
+    </div>`;
+
+    html+=`<div class="card"><div class="ch">📈 Crecimiento & actividad</div>
+      <div class="pstat"><span>Grupos nuevos (24h)</span><b>${new24}</b></div>
+      <div class="pstat"><span>Grupos nuevos (7 días)</span><b>${new7}</b></div>
+      <div class="pstat"><span>Predicciones cargadas (total)</span><b>${totalPreds.toLocaleString('es-AR')}</b></div>
+      <div class="pstat"><span>Usuarios que predijeron ≥1</span><b>${usersWithPred} / ${uniqueUsers}</b></div>
+      <div class="pstat"><span>Completaron fase de grupos (72/72)</span><b>${usersComplete}</b></div>
+      <div class="pstat"><span>Completitud promedio</span><b>${avgCompletion}%</b></div>
+      <div class="pstat"><span>Grupo más grande</span><b>${biggest.name} (${biggest.n})</b></div>
+    </div>`;
+
+    html+=`<div class="card"><div class="ch">🏆 Encuesta: campeón más elegido</div>`;
+    if(topChamps.length){
+      html+=topChamps.map(([team,n])=>{
+        const t=ALL_TEAMS.find(x=>x.n===team);const pct=Math.round(n/champTotal*100);
+        return`<div class="pbar-row"><div class="pbar-lbl">${t?t.f:''} ${team}</div><div class="pbar-track"><div class="pbar-fill" style="width:${pct}%"></div></div><div class="pbar-n">${pct}% (${n})</div></div>`;
+      }).join('');
+      html+=`<div style="font-size:.68rem;color:var(--muted);margin-top:.5rem">Sobre ${champTotal} usuarios que eligieron campeón</div>`;
+    }else html+='<p style="color:var(--muted);font-size:.82rem">Nadie eligió campeón todavía.</p>';
+    html+=`</div>`;
+
+    html+=`<div class="card"><div class="ch">⚽ Estado del torneo</div>
+      <div class="pstat"><span>Partidos de grupos con resultado</span><b>${playedMatches} / ${MATCHES.length}</b></div>
+      <div class="pstat"><span>Partidos KO con resultado</span><b>${koPlayed} / ${KO_MATCHES.length}</b></div>
+    </div>`;
+
+    html+=`<div class="card" style="background:#f5f5fa"><div style="font-size:.72rem;color:var(--muted);line-height:1.5">
+      📌 <b>Cargas de página</b> cuenta cada vez que se abre la app (requiere la regla de Firestore para <code>stats/counters</code>; si marca —, falta agregarla). Para analítica completa (países, dispositivos, tiempo real) mirá <a href="https://console.firebase.google.com/project/prode-mundial-5e21f/analytics" target="_blank" rel="noopener" style="color:var(--p);font-weight:600">Firebase Analytics →</a>
+    </div></div>`;
+
+    el.innerHTML=html;
+  }catch(err){
+    el.innerHTML=`<div class="card"><p style="color:var(--red);font-size:.85rem">❌ Error cargando métricas: ${err.message}</p></div>`;
+  }
+}
+
 /* ═══════════════ SYNC ESPN ═══════════════ */
 const ESPN_URL='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=400';
 // Nombre ESPN (inglés) → mi nombre
@@ -2577,6 +2709,7 @@ function updateCountdown(){
 }
 updateCountdown();
 setInterval(updateCountdown,60000);
+bumpVisit();
 </script>
 </body>
 </html>
