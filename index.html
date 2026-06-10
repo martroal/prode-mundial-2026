@@ -595,6 +595,17 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
     <div id="horarios-c"></div>
   </div>
   <div class="view" id="view-admin">
+    <!-- ESPN Sync -->
+    <div class="card" style="border:2px solid var(--green)">
+      <div class="ch" style="color:var(--green)">🔄 Sincronización automática (ESPN)</div>
+      <p style="font-size:.74rem;color:var(--muted);margin-bottom:.6rem;line-height:1.45">Trae los resultados reales de los partidos terminados desde ESPN y los carga solo. Pisa lo que hayas cargado manual.</p>
+      <button class="btn bblock" id="espn-sync-btn" onclick="syncFromEspn()" style="background:var(--green);color:#fff;font-weight:800">🔄 Sincronizar ahora</button>
+      <label style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-size:.78rem;font-weight:600;color:#333;cursor:pointer">
+        <input type="checkbox" id="espn-auto" onchange="toggleEspnAuto(this.checked)" style="width:18px;height:18px;cursor:pointer">
+        Auto-sincronizar cada 5 min mientras tenga esta pestaña abierta
+      </label>
+      <div id="espn-sync-status" style="font-size:.72rem;color:var(--muted);margin-top:.6rem;line-height:1.4"></div>
+    </div>
     <!-- Simulator -->
     <div class="sim-card">
       <div class="sim-title">🔬 Simulador del torneo</div>
@@ -1317,6 +1328,7 @@ function detach(){
   if(unsubMembers){unsubMembers();unsubMembers=null;}
   Object.values(pendingWrites).forEach(clearTimeout);
   pendingWrites={};
+  if(espnAutoTimer){clearInterval(espnAutoTimer);espnAutoTimer=null;}
 }
 
 function copyCode(){
@@ -2392,6 +2404,133 @@ function removeBots(){
   bots.forEach(([uid])=>batch.delete(db.collection('grupos').doc(currentGroup.id).collection('members').doc(uid)));
   batch.commit();
   toast(`🗑️ ${bots.length} bots eliminados`);
+}
+
+/* ═══════════════ SYNC ESPN ═══════════════ */
+const ESPN_URL='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=400';
+// Nombre ESPN (inglés) → mi nombre
+const ESPN_TEAM_MAP={'Algeria':'Argelia','Argentina':'Argentina','Australia':'Australia','Austria':'Austria','Belgium':'Bélgica','Bosnia-Herzegovina':'Bosnia-Herz.','Brazil':'Brasil','Canada':'Canadá','Cape Verde':'Cabo Verde','Colombia':'Colombia','Congo DR':'Congo DR','Croatia':'Croacia','Curaçao':'Curazao','Czechia':'Rep. Checa','Ecuador':'Ecuador','Egypt':'Egipto','England':'Inglaterra','France':'Francia','Germany':'Alemania','Ghana':'Ghana','Haiti':'Haití','Iran':'Irán','Iraq':'Irak','Ivory Coast':'Costa de Marfil','Japan':'Japón','Jordan':'Jordania','Mexico':'México','Morocco':'Marruecos','Netherlands':'Países Bajos','New Zealand':'Nueva Zelanda','Norway':'Noruega','Panama':'Panamá','Paraguay':'Paraguay','Portugal':'Portugal','Qatar':'Qatar','Saudi Arabia':'Arabia Saudita','Scotland':'Escocia','Senegal':'Senegal','South Africa':'Sudáfrica','South Korea':'Corea del Sur','Spain':'España','Sweden':'Suecia','Switzerland':'Suiza','Tunisia':'Túnez','Türkiye':'Turquía','United States':'EE.UU.','Uruguay':'Uruguay','Uzbekistan':'Uzbekistán'};
+// ESPN event id → mi KO match id (bracket FIFA fijo, mapa verificado)
+const ESPN_KO_MAP={'760486':'r32_1','760487':'r32_4','760488':'r32_3','760489':'r32_2','760490':'r32_6','760491':'r32_7','760492':'r32_5','760493':'r32_10','760494':'r32_9','760495':'r32_8','760496':'r32_11','760497':'r32_12','760498':'r32_13','760499':'r32_16','760500':'r32_14','760501':'r32_15','760502':'r16_1','760503':'r16_2','760504':'r16_3','760505':'r16_4','760506':'r16_5','760507':'r16_6','760508':'r16_7','760509':'r16_8','760510':'qf_1','760511':'qf_2','760512':'qf_3','760513':'qf_4','760514':'sf_1','760515':'sf_2','760516':'tp_1','760517':'f_1'};
+let espnAutoTimer=null;
+
+function espnTeam(name){return ESPN_TEAM_MAP[name]||null;}
+
+function parseEspnEvent(e){
+  const c=e.competitions?.[0];if(!c)return null;
+  const st=c.status?.type||{};
+  const comps=c.competitors||[];
+  const home=comps.find(x=>x.homeAway==='home'),away=comps.find(x=>x.homeAway==='away');
+  if(!home||!away)return null;
+  return {
+    espnId:e.id,
+    state:st.state, completed:!!st.completed,
+    homeName:espnTeam(home.team?.displayName), awayName:espnTeam(away.team?.displayName),
+    homeScore:parseInt(home.score), awayScore:parseInt(away.score),
+    homeWon:!!home.winner, awayWon:!!away.winner
+  };
+}
+
+async function syncFromEspn(opts){
+  opts=opts||{};
+  if(!isSuperAdmin()){if(!opts.silent)toast('❌ Solo super-admin');return;}
+  const btn=document.getElementById('espn-sync-btn');
+  const statusEl=document.getElementById('espn-sync-status');
+  if(btn&&!opts.silent){btn.disabled=true;btn.textContent='⏳ Sincronizando...';}
+  let events;
+  try{
+    const res=await fetch(ESPN_URL);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    events=(await res.json()).events||[];
+  }catch(err){
+    if(btn){btn.disabled=false;btn.textContent='🔄 Sincronizar ahora';}
+    if(statusEl)statusEl.innerHTML=`<span style="color:var(--red)">❌ Error: ${err.message}</span>`;
+    if(!opts.silent)toast('❌ Error ESPN: '+err.message);
+    return;
+  }
+  const parsed=events.map(parseEspnEvent).filter(Boolean);
+  const finished=parsed.filter(x=>x.state==='post'&&x.completed&&!isNaN(x.homeScore)&&!isNaN(x.awayScore));
+  // copia de trabajo (procesamos grupos primero para resolver el bracket)
+  const work=Object.assign({},globalResults||{});
+  const updates={};
+  let groupN=0,koN=0;
+
+  // 1) Fase de grupos: match por par de equipos
+  finished.forEach(ev=>{
+    if(!ev.homeName||!ev.awayName)return;
+    const m=MATCHES.find(mt=>(mt.home.n===ev.homeName&&mt.away.n===ev.awayName)||(mt.home.n===ev.awayName&&mt.away.n===ev.homeName));
+    if(!m)return;
+    const myH=(ev.homeName===m.home.n)?ev.homeScore:ev.awayScore;
+    const myA=(ev.homeName===m.home.n)?ev.awayScore:ev.homeScore;
+    const cur=work[m.id];
+    if(!cur||+cur.h!==myH||+cur.a!==myA){
+      const r={h:myH,a:myA};work[m.id]=r;updates[m.id]=r;groupN++;
+    }
+  });
+
+  // 2) Eliminatorias: por ronda en orden (R16 necesita R32 ya resuelto en work)
+  const byKoId={};finished.forEach(ev=>{const id=ESPN_KO_MAP[ev.espnId];if(id)byKoId[id]=ev;});
+  ['r32','r16','qf','sf','f'].forEach(round=>{
+    KO_STRUCTURE[round].forEach(def=>{
+      const ev=byKoId[def.id];if(!ev)return;
+      const myHomeT=resolveSlot(def.home,work),myAwayT=resolveSlot(def.away,work);
+      let myH,myA;
+      if(myHomeT&&myAwayT&&ev.homeName){
+        myH=(ev.homeName===myHomeT.n)?ev.homeScore:ev.awayScore;
+        myA=(ev.homeName===myHomeT.n)?ev.awayScore:ev.homeScore;
+      }else{ myH=ev.homeScore; myA=ev.awayScore; }
+      const r={h:myH,a:myA};
+      if(myH===myA){
+        const homeIsMyHome=myHomeT&&ev.homeName===myHomeT.n;
+        const myHomeWon=homeIsMyHome?ev.homeWon:ev.awayWon;
+        r.winner=myHomeWon?'h':'a';
+      }
+      const cur=work[def.id];
+      if(!cur||+cur.h!==myH||+cur.a!==myA||cur.winner!==r.winner){
+        work[def.id]=r;updates[def.id]=r;koN++;
+      }
+    });
+  });
+
+  // 3) Derivar resultados especiales (campeón/sub/3ro/ganadores de grupo) para los bonos
+  const champ=getKOWinner('f_1',work),sub=getKOLoser('f_1',work),third=getKOWinner('tp_1',work);
+  if(champ&&work.champion!==champ.n){updates.champion=champ.n;work.champion=champ.n;}
+  if(sub&&work.runnerUp!==sub.n){updates.runnerUp=sub.n;work.runnerUp=sub.n;}
+  if(third&&work.thirdPlace!==third.n){updates.thirdPlace=third.n;work.thirdPlace=third.n;}
+  GK.forEach(g=>{
+    if(isGroupComplete(g,work)){
+      const w=calcStandings(g,work)[0];
+      if(w&&work['gw_'+g]!==w.team.n){updates['gw_'+g]=w.team.n;work['gw_'+g]=w.team.n;}
+    }
+  });
+
+  const total=Object.keys(updates).length;
+  if(total){
+    try{await db.collection('globalResults').doc('wc2026').set(updates,{merge:true});}
+    catch(err){
+      if(btn){btn.disabled=false;btn.textContent='🔄 Sincronizar ahora';}
+      if(statusEl)statusEl.innerHTML=`<span style="color:var(--red)">❌ Error guardando: ${err.message}</span>`;
+      if(!opts.silent)toast('❌ '+err.message);
+      return;
+    }
+  }
+  if(btn){btn.disabled=false;btn.textContent='🔄 Sincronizar ahora';}
+  const hora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  if(statusEl)statusEl.innerHTML=`✅ Última sync: <b>${hora}</b> · ${finished.length} partidos terminados en ESPN · <b>${groupN}</b> grupos + <b>${koN}</b> KO actualizados`;
+  if(!opts.silent||total>0)toast(`✅ ESPN: ${total} resultado${total===1?'':'s'} actualizado${total===1?'':'s'}`);
+}
+
+function toggleEspnAuto(on){
+  if(espnAutoTimer){clearInterval(espnAutoTimer);espnAutoTimer=null;}
+  if(on){
+    syncFromEspn({silent:true});
+    espnAutoTimer=setInterval(()=>{
+      if(isSuperAdmin())syncFromEspn({silent:true});
+    },300000); // 5 min
+    toast('🔄 Auto-sync activado (cada 5 min)');
+  }else{
+    toast('⏸️ Auto-sync desactivado');
+  }
 }
 
 /* ═══════════════ TOAST ═══════════════ */
