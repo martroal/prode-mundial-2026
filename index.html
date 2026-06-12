@@ -264,8 +264,9 @@ body.preview-active .hdr-cfg{display:none}
 body.preview-active .hdr-code{display:none}
 .hdr-cfg-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:var(--on-accent);font-size:.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--p)}
 /* Notificaciones en config */
-.nt-item{display:flex;gap:.5rem;align-items:flex-start;padding:.5rem .55rem;border-radius:8px;background:#f5f5fa;margin-bottom:.4rem;border:1px solid #eee}
+.nt-item{display:flex;gap:.5rem;align-items:flex-start;padding:.5rem .55rem;border-radius:8px;background:var(--surface-2);margin-bottom:.4rem;border:1px solid var(--border)}
 .nt-item.unread{background:#fff8e1;border-color:#ffe082}
+[data-theme="light"] .nt-item.unread,[data-theme="dark"] .nt-item.unread{background:var(--surface-2);border-color:var(--border);border-left:3px solid var(--text)}
 .nt-ic{font-size:1rem;flex-shrink:0}
 .nt-body{flex:1;min-width:0}
 .nt-txt{font-size:.78rem;color:var(--text);line-height:1.35}
@@ -366,6 +367,9 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .tag-owner{background:var(--gold);color:var(--text-soft)}
 .tag-bot{background:#e1bee7;color:#4a148c}
 .tag-you{background:#e3f2fd;color:#1565c0}
+[data-theme="light"] .tag-owner,[data-theme="dark"] .tag-owner,
+[data-theme="light"] .tag-bot,[data-theme="dark"] .tag-bot,
+[data-theme="light"] .tag-you,[data-theme="dark"] .tag-you{background:var(--surface-2);color:var(--text-soft);border:1px solid var(--border)}
 .tag-sim{background:var(--purple);color:var(--on-accent)}
 
 /* PROGRESS */
@@ -570,7 +574,7 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
 
 /* COMENTARIOS en perfil */
 .pc-list{display:flex;flex-direction:column;gap:.45rem;max-height:160px;overflow-y:auto;margin-bottom:.5rem}
-.pc-item{background:var(--surface);border-radius:8px;padding:.4rem .55rem;border:1px solid #eee}
+.pc-item{background:var(--surface);border-radius:8px;padding:.4rem .55rem;border:1px solid var(--border)}
 .pc-item-h{font-size:.66rem;font-weight:800;color:var(--p);display:flex;justify-content:space-between;align-items:center}
 .pc-item-h .pc-time{color:var(--muted);font-weight:500;font-size:.6rem}
 .pc-item-t{font-size:.78rem;color:var(--text-soft);margin-top:.15rem;word-wrap:break-word;line-height:1.35}
@@ -578,6 +582,19 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
 .pc-input{flex:1;border:2px solid var(--border);border-radius:8px;padding:.4rem .6rem;font-size:.8rem;outline:none}
 .pc-input:focus{border-color:var(--p)}
 .pc-send{background:var(--p);color:var(--on-accent);border:none;padding:0 .8rem;border-radius:8px;cursor:pointer;font-weight:800;font-size:.78rem}
+
+/* Recuadros del perfil (stats + secciones) — tematizables */
+.pf-box{background:var(--surface-2);border-radius:10px;padding:.75rem;margin-bottom:.85rem}
+.pf-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:.85rem}
+.pf-stat{border-radius:10px;padding:.6rem;text-align:center}
+.pf-stat-n{font-size:1.3rem;font-weight:900;line-height:1}
+.pf-stat-l{font-size:.63rem;font-weight:700;margin-top:.2rem}
+.pf-stat-x{background:#e8f5e9}.pf-stat-x .pf-stat-n{color:var(--green)}.pf-stat-x .pf-stat-l{color:#2e7d32}
+.pf-stat-r{background:#fff3e0}.pf-stat-r .pf-stat-n{color:#e65100}.pf-stat-r .pf-stat-l{color:#e65100}
+.pf-stat-b{background:#fff8e1}.pf-stat-b .pf-stat-n{color:var(--gold)}.pf-stat-b .pf-stat-l{color:#f57f17}
+[data-theme="light"] .pf-stat,[data-theme="dark"] .pf-stat{background:var(--surface-2)}
+[data-theme="light"] .pf-stat .pf-stat-n,[data-theme="dark"] .pf-stat .pf-stat-n{color:var(--text)}
+[data-theme="light"] .pf-stat .pf-stat-l,[data-theme="dark"] .pf-stat .pf-stat-l{color:var(--text-soft)}
 
 /* CONFIG de usuario */
 .cfg-sec{margin-bottom:.9rem}
@@ -2229,18 +2246,18 @@ function showProfile(uid){
       </div>
       <button onclick="closeMO()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted)">✕</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:.85rem">
-      <div style="background:#e8f5e9;border-radius:10px;padding:.6rem;text-align:center">
-        <div style="font-size:1.3rem;font-weight:900;color:var(--green)">${sc.exact}</div>
-        <div style="font-size:.63rem;color:#2e7d32;font-weight:700">EXACTOS<br>×3 pts</div></div>
-      <div style="background:#fff3e0;border-radius:10px;padding:.6rem;text-align:center">
-        <div style="font-size:1.3rem;font-weight:900;color:#e65100">${sc.r}</div>
-        <div style="font-size:.63rem;color:#e65100;font-weight:700">RESULT.<br>×1 pt</div></div>
-      <div style="background:#fff8e1;border-radius:10px;padding:.6rem;text-align:center">
-        <div style="font-size:1.3rem;font-weight:900;color:var(--gold)">${sc.bonus}</div>
-        <div style="font-size:.63rem;color:#f57f17;font-weight:700">BONUS<br>pts</div></div>
+    <div class="pf-stats">
+      <div class="pf-stat pf-stat-x">
+        <div class="pf-stat-n">${sc.exact}</div>
+        <div class="pf-stat-l">EXACTOS<br>×3 pts</div></div>
+      <div class="pf-stat pf-stat-r">
+        <div class="pf-stat-n">${sc.r}</div>
+        <div class="pf-stat-l">RESULT.<br>×1 pt</div></div>
+      <div class="pf-stat pf-stat-b">
+        <div class="pf-stat-n">${sc.bonus}</div>
+        <div class="pf-stat-l">BONUS<br>pts</div></div>
     </div>
-    <div style="background:#f5f5f5;border-radius:10px;padding:.75rem;margin-bottom:.85rem">
+    <div class="pf-box">
       <div style="font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase">Picks especiales</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.3rem;text-align:center">
         ${['champion','runnerUp','thirdPlace'].map((k,i)=>{const icons=['🏆','🥈','🥉'],labels=['Campeón','Sub','3ro'];
@@ -2250,7 +2267,7 @@ function showProfile(uid){
           return`<div><div style="font-size:1rem">${t?t.f:icons[i]}</div><div style="font-size:.67rem;font-weight:700">${labels[i]}</div><div style="font-size:.68rem;color:var(--muted)">${val}</div></div>`}).join('')}
       </div>
     </div>
-    <div style="background:#f5f5f5;border-radius:10px;padding:.75rem;margin-bottom:.85rem">
+    <div class="pf-box">
       <div style="font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:.45rem;text-transform:uppercase">💬 Comentarios</div>
       <div class="pc-list" id="pc-list"><div style="font-size:.75rem;color:var(--muted);text-align:center;padding:.3rem">Cargando...</div></div>
       <div class="pc-input-row">
