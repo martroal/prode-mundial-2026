@@ -164,6 +164,56 @@
 [data-theme="dark"] .ko-m-lbl,[data-theme="light"] .ko-m-lbl{background:var(--surface-2);color:var(--text-soft)}
 [data-theme="dark"] .ko-tbd,[data-theme="light"] .ko-tbd{color:var(--text-soft)}
 [data-theme="dark"] .m-sched,[data-theme="light"] .m-sched{background:var(--surface-2);color:var(--text-soft)}
+
+/* ════ Superficies/acentos con color fijo → neutros en Claro/Oscuro (Original los conserva) ════ */
+/* Predicciones: stepper +/-, input lleno, valor bloqueado, pills de comparación */
+[data-theme="dark"] .si-btn,[data-theme="light"] .si-btn{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .si-btn:hover,[data-theme="light"] .si-btn:hover{background:var(--surface)}
+[data-theme="dark"] .si-btn:active,[data-theme="light"] .si-btn:active{background:var(--border)}
+[data-theme="dark"] .si.f,[data-theme="light"] .si.f{background:var(--surface-2);border-color:var(--p2)}
+[data-theme="dark"] .pred-val,[data-theme="light"] .pred-val{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .cpe,[data-theme="light"] .cpe,
+[data-theme="dark"] .cpr2,[data-theme="light"] .cpr2,
+[data-theme="dark"] .cpw,[data-theme="light"] .cpw{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .cpu,[data-theme="light"] .cpu{background:var(--surface-2);color:var(--muted)}
+/* Eliminatorias: inputs y desempate */
+[data-theme="dark"] .ko-i,[data-theme="light"] .ko-i{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .ko-i.f,[data-theme="light"] .ko-i.f{background:var(--surface-2);border-color:var(--p2);color:var(--text)}
+[data-theme="dark"] .ko-tie,[data-theme="light"] .ko-tie{background:var(--surface-2)}
+[data-theme="dark"] .ko-tie-lbl,[data-theme="light"] .ko-tie-lbl{color:var(--text-soft)}
+[data-theme="dark"] .ko-tie-btn,[data-theme="light"] .ko-tie-btn{color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .ko-tie-btn:hover,[data-theme="light"] .ko-tie-btn:hover{background:var(--surface-2)}
+[data-theme="dark"] .ko-tie-pick,[data-theme="light"] .ko-tie-pick{color:var(--text-soft)}
+[data-theme="dark"] .mr.ko-locked,[data-theme="light"] .mr.ko-locked{background:var(--surface-2)}
+[data-theme="dark"] .ko-m-lbl-final,[data-theme="light"] .ko-m-lbl-final{background:var(--surface-2);color:var(--text-soft)}
+/* Simulador / etiquetas de fase */
+[data-theme="dark"] .sim-banner,[data-theme="light"] .sim-banner{background:var(--surface-2);border-color:var(--border)}
+[data-theme="dark"] .cal-stage,[data-theme="light"] .cal-stage{background:var(--surface-2);color:var(--text-soft)}
+/* Config */
+[data-theme="dark"] .cfg-preview,[data-theme="light"] .cfg-preview{background:var(--surface-2)}
+[data-theme="dark"] .cfg-emoji:hover,[data-theme="light"] .cfg-emoji:hover{background:var(--surface-2);border-color:var(--p)}
+/* Info / FAQ / Calendario (accordions) */
+[data-theme="dark"] .info-sec details,[data-theme="light"] .info-sec details,
+[data-theme="dark"] .info-sec details[open],[data-theme="light"] .info-sec details[open],
+[data-theme="dark"] .info-block,[data-theme="light"] .info-block,
+[data-theme="dark"] .cal-d,[data-theme="light"] .cal-d,
+[data-theme="dark"] .cal-d[open],[data-theme="light"] .cal-d[open]{background:var(--surface-2);border-color:var(--border)}
+[data-theme="dark"] .cal-pill,[data-theme="light"] .cal-pill{background:var(--surface-2);color:var(--text)}
+[data-theme="dark"] .cal-m,[data-theme="light"] .cal-m{border-color:var(--border)}
+/* Leaderboard: hover + podio monocromo (1° fuerte, 2° suave, 3° sutil) */
+[data-theme="dark"] .lbr:hover,[data-theme="light"] .lbr:hover{background:var(--surface-2)}
+[data-theme="dark"] .rk1,[data-theme="light"] .rk1{background:var(--text);color:var(--bg)}
+[data-theme="dark"] .rk2,[data-theme="light"] .rk2{background:var(--text-soft);color:var(--bg)}
+[data-theme="dark"] .rk3,[data-theme="light"] .rk3{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+/* Panel de control + bordes hairline claros */
+[data-theme="dark"] .pbar-track,[data-theme="light"] .pbar-track{background:var(--surface-2)}
+[data-theme="dark"] .pstat,[data-theme="light"] .pstat,
+[data-theme="dark"] .puser,[data-theme="light"] .puser{border-bottom-color:var(--border)}
+/* Tarjeta "campeón" (gradiente dorado) + su select */
+[data-theme="dark"] .cc,[data-theme="light"] .cc{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+[data-theme="dark"] .cc select,[data-theme="light"] .cc select{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+/* Nota de preview */
+[data-theme="dark"] .preview-note,[data-theme="light"] .preview-note{background:var(--surface-2);color:var(--text-soft);border-color:var(--border)}
 body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh}
 /* Display deportivo: títulos de sección, marcadores y números grandes (estilo scoreboard) */
 .ch,.hdr-title,.t-grp-h,.ko-r-h,.sim-title,.info-h,.cfg-lbl,.login-card h1,.preview-login-card h2,.mi-title,.section-title{font-family:var(--font-display);letter-spacing:.4px}
@@ -494,6 +544,9 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .t-leg{display:flex;gap:.6rem;font-size:.66rem;color:var(--muted);margin-top:.45rem;padding:0 .2rem;flex-wrap:wrap}
 .t-leg-i{display:inline-flex;align-items:center;gap:.2rem}
 .t-leg-d{width:9px;height:9px;border-radius:2px;display:inline-block}
+.t-leg-d.q{background:#e8f5e9}.t-leg-d.m{background:#fff8e1}
+[data-theme="dark"] .t-leg-d.q,[data-theme="light"] .t-leg-d.q{background:var(--text-soft)}
+[data-theme="dark"] .t-leg-d.m,[data-theme="light"] .t-leg-d.m{background:var(--border)}
 
 /* TORNEO — Bracket KO */
 .ko-r{margin-bottom:1rem}
@@ -501,6 +554,7 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .ko-r-n{font-size:.66rem;color:var(--muted);font-weight:600}
 .ko-m{background:var(--surface);border:1.5px solid var(--border);border-radius:9px;padding:.5rem;margin-bottom:.4rem;display:grid;grid-template-columns:1fr;gap:.25rem}
 .ko-m-lbl{text-align:center;font-size:.66rem;font-weight:800;color:var(--p);background:#f3e5f5;padding:.18rem;border-radius:5px;margin-bottom:.15rem;letter-spacing:.04em;text-transform:uppercase}
+.ko-m-lbl-final{background:#fff3e0;color:#e65100}
 .ko-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.4rem;font-size:.8rem}
 .ko-side{font-weight:700;line-height:1.2;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ko-side.w{color:var(--green);font-weight:800}
@@ -2785,8 +2839,8 @@ function renderStandings(){
   }).join('');
   el.innerHTML=`<div class="t-standings-grid">${cards}</div>
   <div class="t-leg">
-    <span class="t-leg-i"><span class="t-leg-d" style="background:#e8f5e9"></span>Top 2: clasifica directo</span>
-    <span class="t-leg-i"><span class="t-leg-d" style="background:#fff8e1"></span>3° puesto: clasifica si está entre los 8 mejores</span>
+    <span class="t-leg-i"><span class="t-leg-d q"></span>Top 2: clasifica directo</span>
+    <span class="t-leg-i"><span class="t-leg-d m"></span>3° puesto: clasifica si está entre los 8 mejores</span>
   </div>`;
 }
 
@@ -2809,7 +2863,7 @@ function renderBracketKO(){
       const hLabel=home?`${home.f} ${home.n}`:`<i class="ko-tbd">${slotLabel(m.home)}</i>`;
       const aLabel=away?`${away.f} ${away.n}`:`<i class="ko-tbd">${slotLabel(m.away)}</i>`;
       const isFinal=m.id==='f_1',isTP=m.id.startsWith('tp');
-      const label=isFinal?'<div class="ko-m-lbl" style="background:#fff3e0;color:#e65100">🏆 FINAL</div>':(isTP?'<div class="ko-m-lbl">3er puesto</div>':'');
+      const label=isFinal?'<div class="ko-m-lbl ko-m-lbl-final">🏆 FINAL</div>':(isTP?'<div class="ko-m-lbl">3er puesto</div>':'');
       // Input values siempre vienen de mis predicciones (los inputs son MIS picks)
       const p=myP[m.id]||{};
       const pH=p.h!==undefined&&p.h!==''?p.h:'';
@@ -3259,7 +3313,7 @@ async function renderPanel(){
     }else html+='<p style="color:var(--muted);font-size:.82rem">Sin usuarios todavía.</p>';
     html+=`</div>`;
 
-    html+=`<div class="card" style="background:#f5f5fa"><div style="font-size:.72rem;color:var(--muted);line-height:1.5">
+    html+=`<div class="card"><div style="font-size:.72rem;color:var(--muted);line-height:1.5">
       📌 <b>Cargas de página</b> cuenta cada vez que se abre la app (requiere la regla de Firestore para <code>stats/counters</code>; si marca —, falta agregarla). Para analítica completa (países, dispositivos, tiempo real) mirá <a href="https://console.firebase.google.com/project/prode-mundial-5e21f/analytics" target="_blank" rel="noopener" style="color:var(--p);font-weight:600">Firebase Analytics →</a>
     </div></div>`;
 
