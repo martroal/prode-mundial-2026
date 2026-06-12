@@ -111,9 +111,9 @@
 
 /* ════ TEMA OSCURO: todo oscuro, texto y acentos claros (monocromo) ════ */
 [data-theme="dark"]{
-  --bg:#0e1016;--surface:#191c26;--surface-2:#222634;--text:#e9ebf2;--text-soft:#aab2c5;--muted:#8b93a6;--border:#2c3242;
-  --p:#e9ebf2;--p2:#cfd3de;--purple:#e9ebf2;--red:#e9ebf2;--green:#e9ebf2;--gold:#e9ebf2;
-  --on-accent:#14151b;--header-text:#e9ebf2}
+  --bg:#000000;--surface:#0c0d11;--surface-2:#131419;--text:#eceef4;--text-soft:#9298a6;--muted:#7b8190;--border:#26282f;
+  --p:#eceef4;--p2:#cfd3de;--purple:#eceef4;--red:#eceef4;--green:#eceef4;--gold:#eceef4;
+  --on-accent:#0c0d11;--header-text:#eceef4}
 [data-theme="dark"] #screen-app .hdr,[data-theme="dark"] #screen-dashboard .hdr{background:#15161c;border-bottom:1px solid #262a36}
 [data-theme="dark"] #screen-login,[data-theme="dark"] #screen-loading{background:#0e1016}
 [data-theme="dark"] .hdr-back,[data-theme="dark"] .hdr-cfg,[data-theme="dark"] .hdr-code,[data-theme="dark"] .hdr-signout{background:rgba(255,255,255,.1)}
@@ -149,6 +149,21 @@
 [data-theme="dark"] .t-mode-btn,[data-theme="light"] .t-mode-btn{border-color:var(--border);color:var(--text-soft)}
 [data-theme="dark"] .t-mode-btn.sel,[data-theme="light"] .t-mode-btn.sel{background:var(--p);border-color:var(--p);color:var(--on-accent);box-shadow:none}
 [data-theme="dark"] .t-tab tr.maybe .t-pos,[data-theme="light"] .t-tab tr.maybe .t-pos{color:var(--text-soft)}
+
+/* Tablas y eliminatorias en Claro/Oscuro: separar por líneas finas, sin bandas ni gradientes */
+[data-theme="dark"] .card{box-shadow:none;border-color:var(--border)}
+[data-theme="dark"] .t-grp-h,[data-theme="light"] .t-grp-h{background:transparent;border-bottom:1px solid var(--border)}
+[data-theme="dark"] .t-tab thead th,[data-theme="light"] .t-tab thead th{background:transparent}
+[data-theme="dark"] .t-tab tbody td,[data-theme="light"] .t-tab tbody td{border-bottom-color:var(--border)}
+[data-theme="dark"] .t-tab tr.qual{background:rgba(255,255,255,.05)}
+[data-theme="dark"] .t-tab tr.maybe{background:rgba(255,255,255,.02)}
+[data-theme="light"] .t-tab tr.qual{background:#eef0f5}
+[data-theme="light"] .t-tab tr.maybe{background:#f6f7f9}
+[data-theme="dark"] .ko-r-h,[data-theme="light"] .ko-r-h{background:transparent;border-bottom:1px solid var(--border);border-radius:0;color:var(--text)}
+[data-theme="dark"] .ko-m,[data-theme="light"] .ko-m{box-shadow:none}
+[data-theme="dark"] .ko-m-lbl,[data-theme="light"] .ko-m-lbl{background:var(--surface-2);color:var(--text-soft)}
+[data-theme="dark"] .ko-tbd,[data-theme="light"] .ko-tbd{color:var(--text-soft)}
+[data-theme="dark"] .m-sched,[data-theme="light"] .m-sched{background:var(--surface-2);color:var(--text-soft)}
 body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh}
 /* Display deportivo: títulos de sección, marcadores y números grandes (estilo scoreboard) */
 .ch,.hdr-title,.t-grp-h,.ko-r-h,.sim-title,.info-h,.cfg-lbl,.login-card h1,.preview-login-card h2,.mi-title,.section-title{font-family:var(--font-display);letter-spacing:.4px}
