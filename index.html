@@ -2263,7 +2263,7 @@ function showProfile(uid){
     const gwRevealed=!lock||isGroupComplete(g,globalResults);
     const rows=gm.map(m=>{
       const p=pred[m.id]||{},r=globalResults?.[m.id];
-      const revealed=!lock||matchEndedReal(m.id);
+      const revealed=!lock||matchStarted(m.id);
       let ind='',cls='';
       if(revealed&&r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
         const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
@@ -2272,7 +2272,7 @@ function showProfile(uid){
         else{ind='✗';cls='iw';}
       }
       const hasP=p.h!==undefined&&p.h!=='';
-      const predCell=revealed?(hasP?`${p.h}-${p.a}`:'?'):'<span title="Se revela cuando termine el partido">🔒</span>';
+      const predCell=revealed?(hasP?`${p.h}-${p.a}`:'?'):'<span title="Se revela cuando empiece el partido (al cerrarse las predicciones)">🔒</span>';
       return`<div class="ppr">
         <span class="ppr-m">${m.home.f} ${m.home.n} vs ${m.away.n} ${m.away.f}</span>
         <span class="ppr-s">${predCell}</span>
