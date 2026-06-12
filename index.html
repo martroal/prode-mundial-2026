@@ -263,6 +263,20 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
   cursor:pointer;font-size:.73rem;font-weight:800;transition:all .2s}
 .st.active{background:var(--p);color:#fff}
 
+/* Control segmentado (toggle primario) */
+.seg{display:flex;background:#fff;border:1.5px solid var(--border);border-radius:11px;padding:3px;gap:3px;margin-bottom:var(--sp-3);box-shadow:var(--shadow-sm)}
+.seg-btn{flex:1;border:none;background:none;padding:.5rem .4rem;border-radius:8px;font-weight:800;font-size:.82rem;color:var(--muted);cursor:pointer;transition:all .15s}
+.seg-btn.active{background:var(--p);color:#fff}
+.seg-btn:not(.active):active{background:var(--bg)}
+
+/* Fila: dropdown de modo (preferencia) + chips del selector */
+.preds-selrow{display:flex;gap:var(--sp-2);align-items:center;margin-bottom:var(--sp-3)}
+.preds-mode-sel{flex-shrink:0;border:1.5px solid var(--border);border-radius:9px;background:#fff;padding:.42rem .5rem;font-size:.74rem;font-weight:700;color:var(--p);cursor:pointer;max-width:42%}
+.preds-mode-sel:focus{outline:none;border-color:var(--p)}
+.preds-chips{flex:1;min-width:0;display:flex;gap:.3rem;overflow-x:auto;flex-wrap:nowrap;margin-bottom:0;scrollbar-width:none}
+.preds-chips::-webkit-scrollbar{display:none}
+.preds-chips .st{flex:0 0 auto}
+
 /* LEADERBOARD */
 .lbr{display:flex;align-items:center;padding:.65rem .4rem;border-bottom:1px solid var(--border);
   gap:.65rem;cursor:pointer;transition:background .15s;border-radius:8px}
@@ -658,12 +672,14 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
   </div>
 
   <div class="view active" id="view-preds">
-    <div class="stabs" id="preds-stage-tabs">
-      <button class="st active" id="ps-grupos" onclick="setPredsStage('grupos')">⚽ Grupos</button>
-      <button class="st" id="ps-ko" onclick="setPredsStage('ko')">🏆 Eliminatorias</button>
+    <div class="seg" id="preds-stage-tabs">
+      <button class="seg-btn active" id="ps-grupos" onclick="setPredsStage('grupos')">⚽ Grupos</button>
+      <button class="seg-btn" id="ps-ko" onclick="setPredsStage('ko')">🏆 Eliminatorias</button>
     </div>
-    <div class="stabs" id="preds-mode-tabs"></div>
-    <div class="stabs" id="gtabs"></div>
+    <div class="preds-selrow">
+      <select class="preds-mode-sel" id="preds-mode-sel" onchange="setPredsModeFromSelect(this.value)" aria-label="Agrupar por"></select>
+      <div class="stabs preds-chips" id="gtabs"></div>
+    </div>
     <div id="preds-c"></div>
   </div>
   <div class="view" id="view-torneo">
@@ -1632,38 +1648,36 @@ function koMatchesForDay(dateStr){
 }
 function _scrollActive(el){setTimeout(()=>{const a=el.querySelector('.st.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},50);}
 
-// Tabs de nivel 2 (modo) y nivel 3 (selector) según predsStage
+// Dropdown de modo (preferencia) + chips del selector según predsStage
 function renderPredsTabs(){
-  const modeEl=document.getElementById('preds-mode-tabs');
+  const sel=document.getElementById('preds-mode-sel');
   const selEl=document.getElementById('gtabs');
-  if(!modeEl||!selEl)return;
+  if(!sel||!selEl)return;
+  const opt=(v,lbl,cur)=>`<option value="${v}"${v===cur?' selected':''}>${lbl}</option>`;
   if(predsStage==='grupos'){
-    modeEl.innerHTML=`
-      <button class="st${predsModeG==='dia'?' active':''}" onclick="setPredsModeG('dia')">📅 Por día</button>
-      <button class="st${predsModeG==='grupo'?' active':''}" onclick="setPredsModeG('grupo')">📁 Por grupo</button>
-      <button class="st${predsModeG==='jornada'?' active':''}" onclick="setPredsModeG('jornada')">🗓️ Por jornada</button>`;
+    sel.innerHTML=opt('dia','📅 Por día',predsModeG)+opt('grupo','📁 Por grupo',predsModeG)+opt('jornada','🗓️ Por jornada',predsModeG);
     if(predsModeG==='dia'){
       const days=groupStageDays();
       selEl.innerHTML=days.map((d,i)=>`<button class="st${i===curDia?' active':''}" onclick="setDia(${i})">${dayShortLabel(d)}</button>`).join('');
-      _scrollActive(selEl);
     }else if(predsModeG==='grupo'){
       selEl.innerHTML=GK.map(g=>`<button class="st${g===curGroup?' active':''}" onclick="setGroup('${g}')">G.${g}</button>`).join('');
     }else{
-      selEl.innerHTML=[1,2,3].map(j=>`<button class="st${j===curJornada?' active':''}" onclick="setJornada(${j})">Jornada ${j}</button>`).join('');
+      selEl.innerHTML=[1,2,3].map(j=>`<button class="st${j===curJornada?' active':''}" onclick="setJornada(${j})">J${j}</button>`).join('');
     }
   }else{
-    modeEl.innerHTML=`
-      <button class="st${predsModeK==='fase'?' active':''}" onclick="setPredsModeK('fase')">🏆 Por fase</button>
-      <button class="st${predsModeK==='dia'?' active':''}" onclick="setPredsModeK('dia')">📅 Por día</button>`;
+    sel.innerHTML=opt('fase','🏆 Por fase',predsModeK)+opt('dia','📅 Por día',predsModeK);
     if(predsModeK==='fase'){
       selEl.innerHTML=KO_ROUNDS.map(r=>`<button class="st${r.key===curFase?' active':''}" onclick="setFase('${r.key}')">${r.icon} ${r.label}</button>`).join('');
-      _scrollActive(selEl);
     }else{
       const days=koStageDays();
       selEl.innerHTML=days.map((d,i)=>`<button class="st${i===curKoDia?' active':''}" onclick="setKoDia(${i})">${dayShortLabel(d)}</button>`).join('');
-      _scrollActive(selEl);
     }
   }
+  _scrollActive(selEl);
+}
+function setPredsModeFromSelect(v){
+  if(predsStage==='grupos')setPredsModeG(v);
+  else setPredsModeK(v);
 }
 
 // HTML de una fila de partido (reusada en ambos modos)
