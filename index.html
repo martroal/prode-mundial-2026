@@ -186,15 +186,10 @@ body{font-family:var(--font-body);background:var(--bg);color:#212121;min-height:
 .hdr-cfg{position:relative;background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:30px;border-radius:8px;cursor:pointer;font-size:.95rem;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .hdr-cfg:active{transform:scale(.92)}
 body.preview-active .hdr-cfg{display:none}
-/* Tira fina bajo el header: countdown + código (respira, no compite con el título) */
-.subbar{display:flex;align-items:center;gap:var(--sp-2);
-  padding:var(--sp-2) max(var(--sp-4),env(safe-area-inset-right)) var(--sp-2) max(var(--sp-4),env(safe-area-inset-left));
-  background:var(--bg);border-bottom:1px solid var(--border)}
-body.preview-active .subbar{justify-content:center}
-.hdr-countdown{flex-shrink:0;background:#e8eaf6;color:var(--p);padding:.3rem .6rem;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:.3rem}
-.hdr-countdown b{font-weight:700;font-size:.8rem}
-.hdr-code{margin-left:auto;background:var(--p);border:none;color:#fff;padding:.32rem .7rem;
-  border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:.25rem;white-space:nowrap}
+.hdr-countdown{display:flex;align-items:center;gap:.3rem;font-weight:700}
+.hdr-countdown b{font-weight:700}
+.hdr-code{flex-shrink:0;background:rgba(255,255,255,.18);border:none;color:#fff;padding:.34rem .65rem;
+  border-radius:20px;font-size:.7rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:.25rem;white-space:nowrap}
 .hdr-code:active{transform:scale(.96)}
 .hdr-code span{font-family:monospace;letter-spacing:.5px;font-weight:800}
 body.preview-active .hdr-code{display:none}
@@ -631,12 +626,10 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
   <div class="hdr">
     <button class="hdr-back" onclick="leavGroup()">←</button>
     <div class="hdr-title" id="app-title">...</div>
+    <button class="hdr-code" id="app-code" onclick="copyCode()" title="Copiar código e invitar">📋 <span id="app-code-val">...</span></button>
     <button class="hdr-cfg" id="cfg-btn" onclick="openConfig()" title="Mi configuración">⚙️<span class="hdr-cfg-badge" id="cfg-badge" style="display:none">0</span></button>
   </div>
-  <div class="subbar" id="subbar">
-    <div class="hdr-countdown" id="hdr-countdown" title="Tiempo hasta el Mundial">⏱ <b>--</b></div>
-    <button class="hdr-code" id="app-code" onclick="copyCode()" title="Tocá para copiar y compartir">📋 <span id="app-code-val">...</span></button>
-  </div>
+  <div class="hdr-countdown" id="hdr-countdown" style="display:none">⏱ <b>--</b></div>
   <nav class="nav" id="app-nav">
     <button class="nb active" data-view="preds"    onclick="nav('preds')">📝 Predicciones</button>
     <button class="nb"        data-view="torneo"   onclick="nav('torneo')">🌎 Torneo</button>
