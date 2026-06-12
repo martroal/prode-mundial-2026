@@ -17,6 +17,11 @@
 <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
 
+<!-- Tipografía: Oswald (display deportivo) para títulos/marcadores; sistema para el cuerpo -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap">
+
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1a237e">
@@ -89,8 +94,13 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--p:#1a237e;--p2:#283593;--red:#c62828;--gold:#f9a825;--green:#2e7d32;
-  --bg:#f0f2f5;--muted:#757575;--border:#e0e0e0;--purple:#7b1fa2}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#212121;min-height:100vh}
+  --bg:#f0f2f5;--muted:#757575;--border:#e0e0e0;--purple:#7b1fa2;
+  --font-body:'Segoe UI',system-ui,-apple-system,sans-serif;
+  --font-display:'Oswald','Segoe UI',system-ui,sans-serif}
+body{font-family:var(--font-body);background:var(--bg);color:#212121;min-height:100vh}
+/* Display deportivo: títulos de sección, marcadores y números grandes (estilo scoreboard) */
+.ch,.hdr-title,.t-grp-h,.ko-r-h,.sim-title,.info-h,.cfg-lbl,.login-card h1,.preview-login-card h2,.mi-title,.section-title{font-family:var(--font-display);letter-spacing:.4px}
+.si,.pred-val,.ko-i,.ptb,.rc,.pk-v,.hdr-countdown b,.gbadge,.t-tab tbody td b,.scorebig{font-family:var(--font-display);font-variant-numeric:tabular-nums}
 
 /* SCREENS */
 .screen{display:none}.screen.active{display:block}
