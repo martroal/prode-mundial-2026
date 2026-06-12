@@ -91,7 +91,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>try{var _t=localStorage.getItem('prode-theme');if(_t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<script>try{var _t=localStorage.getItem('prode-theme');if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--p:#1a237e;--p2:#283593;--red:#c62828;--gold:#f9a825;--green:#2e7d32;
@@ -117,6 +117,9 @@
 [data-theme="dark"] .chat-msgs{background:#12141c}
 [data-theme="dark"] .chat-input,[data-theme="dark"] .pc-input{color:var(--text)}
 [data-theme="dark"] img.avatar,[data-theme="dark"] .login-card{box-shadow:var(--shadow-lg)}
+/* Tema claro: fondo blanco puro, letras oscuras (vs Original que tiene fondo gris) */
+[data-theme="light"]{--bg:#ffffff;--surface:#ffffff;--surface-2:#f4f5f9;--text:#15151c;--text-soft:#4d4d57;--border:#e7e8ef}
+[data-theme="light"] .card{box-shadow:var(--shadow-sm)}
 body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh}
 /* Display deportivo: títulos de sección, marcadores y números grandes (estilo scoreboard) */
 .ch,.hdr-title,.t-grp-h,.ko-r-h,.sim-title,.info-h,.cfg-lbl,.login-card h1,.preview-login-card h2,.mi-title,.section-title{font-family:var(--font-display);letter-spacing:.4px}
@@ -2336,20 +2339,18 @@ function markNotifsRead(){
   batch.commit().catch(()=>{});
 }
 
-/* ═══════════════ TEMA (claro/oscuro) ═══════════════ */
-function currentTheme(){try{return localStorage.getItem('prode-theme')==='dark'?'dark':'light';}catch(e){return 'light';}}
+/* ═══════════════ TEMA (original/claro/oscuro) ═══════════════ */
+function currentTheme(){try{const t=localStorage.getItem('prode-theme');return(t==='dark'||t==='light')?t:'original';}catch(e){return 'original';}}
 function applyTheme(theme){
-  const dark=theme==='dark';
-  if(dark)document.documentElement.setAttribute('data-theme','dark');
-  else document.documentElement.removeAttribute('data-theme');
+  if(theme==='dark'||theme==='light')document.documentElement.setAttribute('data-theme',theme);
+  else theme='original',document.documentElement.removeAttribute('data-theme');
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.content=dark?'#0e1016':'#1a237e';
-  try{localStorage.setItem('prode-theme',dark?'dark':'light');}catch(e){}
+  if(meta)meta.content=theme==='dark'?'#0e1016':'#1a237e';
+  try{localStorage.setItem('prode-theme',theme);}catch(e){}
 }
 function setTheme(theme){
   applyTheme(theme);
-  document.getElementById('th-light')?.classList.toggle('active',theme!=='dark');
-  document.getElementById('th-dark')?.classList.toggle('active',theme==='dark');
+  ['original','light','dark'].forEach(t=>document.getElementById('th-'+t)?.classList.toggle('active',theme===t));
 }
 applyTheme(currentTheme());
 
@@ -2381,7 +2382,8 @@ function openConfig(){
     <div class="cfg-sec">
       <label class="cfg-lbl">🎨 Tema</label>
       <div class="seg">
-        <button class="seg-btn${currentTheme()!=='dark'?' active':''}" id="th-light" onclick="setTheme('light')">☀️ Claro</button>
+        <button class="seg-btn${currentTheme()==='original'?' active':''}" id="th-original" onclick="setTheme('original')">🎨 Original</button>
+        <button class="seg-btn${currentTheme()==='light'?' active':''}" id="th-light" onclick="setTheme('light')">☀️ Claro</button>
         <button class="seg-btn${currentTheme()==='dark'?' active':''}" id="th-dark" onclick="setTheme('dark')">🌙 Oscuro</button>
       </div>
     </div>
