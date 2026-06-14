@@ -1604,7 +1604,14 @@ function enterGroup(groupId){
   showScreen('app');nav('preds');
   // Listener: group doc (results, simResults)
   unsubGroup=db.collection('grupos').doc(groupId).onSnapshot(doc=>{
-    if(!doc.exists)return;
+    if(!doc.exists){
+      // el grupo fue eliminado por el dueño → sacar al usuario y limpiar su lista
+      db.collection('users').doc(currentUser.uid).collection('groups').doc(groupId).delete().catch(()=>{});
+      detach();currentGroup=null;
+      toast('Este grupo ya no existe');
+      showScreen('dashboard');loadMyGroups();
+      return;
+    }
     currentGroup={id:groupId,...doc.data()};
     document.getElementById('app-title').textContent=currentGroup.name;
     document.getElementById('app-code-val').textContent=currentGroup.code;
@@ -2481,6 +2488,57 @@ function memberName(m){
   return m.emoji?`${base} ${m.emoji}`:base;
 }
 
+/* ═══════════════ AJUSTES DEL GRUPO (dueño) ═══════════════ */
+function isGroupOwner(){ return !!currentGroup && !previewMode && currentGroup.ownerUid===currentUser?.uid; }
+
+async function renameGroup(){
+  if(!isGroupOwner())return;
+  const newName=(document.getElementById('cfg-gname')?.value||'').trim().slice(0,40);
+  if(!newName)return toast('Escribí un nombre');
+  if(newName===currentGroup.name)return toast('Es el mismo nombre');
+  try{
+    await db.collection('grupos').doc(currentGroup.id).update({name:newName});
+    // actualizar mi copia denormalizada (la lista "Mis grupos")
+    db.collection('users').doc(currentUser.uid).collection('groups').doc(currentGroup.id).update({name:newName}).catch(()=>{});
+    toast('✅ Nombre actualizado');
+  }catch(e){toast('❌ '+(e.code==='permission-denied'?'Sin permiso (¿sos el dueño?)':e.message));}
+}
+
+async function deleteGroup(){
+  if(!isGroupOwner())return;
+  const name=(currentGroup.name||'').trim();
+  const typed=prompt(`⚠️ Vas a borrar el grupo y TODO su contenido (predicciones, chat, comentarios) para todos. No se puede deshacer.\n\nEscribí el nombre del grupo para confirmar:\n${name}`);
+  if(typed===null)return; // canceló
+  if(typed.trim()!==name)return toast('El nombre no coincide — cancelado');
+  const gid=currentGroup.id, code=currentGroup.code;
+  closeMO();
+  detach();                 // cortar listeners antes de borrar (evita re-render en cascada)
+  currentGroup=null;
+  toast('Eliminando grupo…');
+  try{
+    const gref=db.collection('grupos').doc(gid);
+    // 1) miembros + sus comentarios de perfil
+    const members=await gref.collection('members').get();
+    for(const m of members.docs){
+      const cs=await gref.collection('members').doc(m.id).collection('comments').get().catch(()=>({docs:[]}));
+      await Promise.all(cs.docs.map(d=>d.ref.delete().catch(()=>{})));
+      await m.ref.delete().catch(()=>{});
+    }
+    // 2) chat
+    const chat=await gref.collection('chat').get().catch(()=>({docs:[]}));
+    await Promise.all(chat.docs.map(d=>d.ref.delete().catch(()=>{})));
+    // 3) código de acceso
+    if(code)await db.collection('codes').doc(code).delete().catch(()=>{});
+    // 4) mi entrada en "Mis grupos"
+    await db.collection('users').doc(currentUser.uid).collection('groups').doc(gid).delete().catch(()=>{});
+    // 5) el doc del grupo (último: dispara el "ya no existe" en los demás)
+    await gref.delete();
+    toast('✅ Grupo eliminado');
+  }catch(e){toast('❌ '+(e.code==='permission-denied'?'Sin permiso para borrar (falta la regla de Firestore)':e.message));}
+  showScreen('dashboard');
+  loadMyGroups();
+}
+
 function openConfig(){
   if(!currentUser||!currentGroup||previewMode)return;
   const me=groupMembers[currentUser.uid]||{};
@@ -2527,7 +2585,17 @@ function openConfig(){
       <input class="fi" id="cfg-bio" maxlength="80" value="${bio}" placeholder="Ej: Vamos que se puede 🇦🇷">
     </div>
     <button class="btn bp bblock" onclick="saveConfig()">💾 Guardar</button>
-    <button class="btn br bblock" style="margin-top:.5rem" onclick="signOut()">🚪 Cerrar sesión</button>
+    ${isGroupOwner()?`
+    <div class="cfg-sec" style="margin-top:1.1rem;border-top:2px solid var(--border);padding-top:.9rem">
+      <label class="cfg-lbl">👑 Grupo <span class="cfg-opt">(solo el dueño)</span></label>
+      <div style="display:flex;gap:.4rem">
+        <input class="fi" id="cfg-gname" maxlength="40" value="${(currentGroup.name||'').replace(/"/g,'&quot;')}" style="flex:1" placeholder="Nombre del grupo">
+        <button class="btn bp" style="white-space:nowrap" onclick="renameGroup()">Renombrar</button>
+      </div>
+      <button class="btn br bblock" style="margin-top:.6rem;font-size:.8rem" onclick="deleteGroup()">🗑️ Eliminar grupo</button>
+      <div style="font-size:.66rem;color:var(--muted);margin-top:.35rem;line-height:1.4">Eliminar borra el grupo y todo su contenido (predicciones, chat, comentarios) para todos. No se puede deshacer.</div>
+    </div>`:''}
+    <button class="btn br bblock" style="margin-top:.9rem" onclick="signOut()">🚪 Cerrar sesión</button>
   `;
   updateCfgPreview();
   document.getElementById('mo').classList.add('open');
