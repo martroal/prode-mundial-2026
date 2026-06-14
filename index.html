@@ -453,6 +453,10 @@ select.fi{cursor:pointer}.fg{margin-bottom:.8rem}
 .ppr-m{color:var(--muted);flex:1}
 .ppr-s{font-weight:800;font-size:.83rem;padding:.14rem .38rem;border-radius:6px;background:var(--bg)}
 .ppr-i{width:48px;text-align:right;font-size:.68rem}
+.ppr-day{font-size:.66rem;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.03em;padding:.6rem 0 .2rem;border-bottom:1px solid var(--border);margin-bottom:.15rem}
+.ppr-day:first-child{padding-top:0}
+.gw-chips{display:flex;flex-wrap:wrap;gap:.3rem .4rem}
+.gw-chip{font-size:.74rem;display:inline-flex;align-items:center;gap:.3rem;background:var(--surface-2);padding:.22rem .5rem;border-radius:8px}
 
 /* SIM */
 .sim-card{background:linear-gradient(135deg,#f3e5f5,#ede7f6);border-radius:14px;
@@ -1601,6 +1605,9 @@ function closeMI(){document.getElementById('mi-overlay').classList.remove('open'
 /* ═══════════════ ENTER / LEAVE GROUP ═══════════════ */
 function enterGroup(groupId){
   detach();simMode=false;curGroup='A';
+  // Predicciones arranca en el día de hoy (o el próximo con partidos)
+  curDia=todayDayIndex(groupStageDays());
+  curKoDia=todayDayIndex(koStageDays());
   showScreen('app');nav('preds');
   // Listener: group doc (results, simResults)
   unsubGroup=db.collection('grupos').doc(groupId).onSnapshot(doc=>{
@@ -1793,6 +1800,20 @@ function koStageDays(){
 function koMatchesForDay(dateStr){
   return KO_MATCHES.filter(m=>SCHEDULE_MAP[m.id]?.date===dateStr)
     .sort((a,b)=>(SCHEDULE_MAP[a.id]?.time||'').localeCompare(SCHEDULE_MAP[b.id]?.time||''));
+}
+// "Jueves 11 de Junio" → ms de la medianoche (ARG) de ese día
+function dayDateMs(dateStr){
+  const parts=(dateStr||'').split(' de ');
+  const day=parseInt((parts[0]||'').split(' ').slice(-1)[0])||1;
+  const month=parts[1]==='Julio'?6:(parts[1]==='Junio'?5:0);
+  return new Date(2026,month,day,0,0,0).getTime();
+}
+// Índice del día de HOY dentro de una lista de días (o el próximo con partidos; o el último si ya pasaron todos)
+function todayDayIndex(days){
+  if(!days||!days.length)return 0;
+  const now=Date.now();
+  for(let i=0;i<days.length;i++){ if(dayDateMs(days[i])+86400000>now) return i; }
+  return days.length-1;
 }
 function _scrollActive(el){setTimeout(()=>{const a=el.querySelector('.st.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},50);}
 
@@ -2263,34 +2284,37 @@ function showProfile(uid){
   const photo=mem.photoURL&&!isBot?`<img class="avatar" style="width:48px;height:48px" src="${mem.photoURL}" alt="">`
     :`<div class="avatar-ph" style="width:48px;height:48px;font-size:1.3rem;background:${color}">${isBot?'🤖':mem.displayName[0].toUpperCase()}</div>`;
 
-  const groupsHTML=GK.map(g=>{
-    const gm=MATCHES.filter(m=>m.group===g);
+  // Predicciones en orden cronológico (por fecha/hora de kickoff)
+  const sortedMatches=MATCHES.slice().sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
+  let _lastProfDate=null;
+  const groupsHTML=sortedMatches.map(m=>{
+    const p=pred[m.id]||{},r=globalResults?.[m.id];
+    const revealed=!lock||matchStarted(m.id);
+    let ind='',cls='';
+    if(revealed&&r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
+      const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
+      if(+p.h===r.h&&+p.a===r.a){ind='★★★';cls='ie';}
+      else if(po===ro){ind='★';cls='ir';}
+      else{ind='✗';cls='iw';}
+    }
+    const hasP=p.h!==undefined&&p.h!=='';
+    const predCell=revealed?(hasP?`${p.h}-${p.a}`:'?'):'<span title="Se revela cuando empiece el partido (al cerrarse las predicciones)">🔒</span>';
+    const s=SCHEDULE_MAP[m.id];
+    let dayHdr='';
+    if(s&&s.date!==_lastProfDate){_lastProfDate=s.date;dayHdr=`<div class="ppr-day">📅 ${s.date}</div>`;}
+    return`${dayHdr}<div class="ppr">
+      <span class="ppr-m"><b style="color:var(--p)">${m.group}</b> ${m.home.f} ${m.home.n} vs ${m.away.n} ${m.away.f}${s?`<span style="color:var(--muted);font-weight:500"> · ${s.time}</span>`:''}</span>
+      <span class="ppr-s">${predCell}</span>
+      <span class="ppr-i"><span class="${cls}">${ind}</span>${(r&&r.h!==undefined)?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
+    </div>`;
+  }).join('');
+  // Picks de ganador de grupo (compactos, debajo)
+  const gwChipsHTML=GK.map(g=>{
     const gwPred=pred['gw_'+g];
     const gwTeam=gwPred?GROUPS[g].teams.find(t=>t.n===gwPred):null;
     const gwRevealed=!lock||isGroupComplete(g,globalResults);
-    const rows=gm.map(m=>{
-      const p=pred[m.id]||{},r=globalResults?.[m.id];
-      const revealed=!lock||matchStarted(m.id);
-      let ind='',cls='';
-      if(revealed&&r&&r.h!==undefined&&p.h!==undefined&&p.h!==''){
-        const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
-        if(+p.h===r.h&&+p.a===r.a){ind='★★★';cls='ie';}
-        else if(po===ro){ind='★';cls='ir';}
-        else{ind='✗';cls='iw';}
-      }
-      const hasP=p.h!==undefined&&p.h!=='';
-      const predCell=revealed?(hasP?`${p.h}-${p.a}`:'?'):'<span title="Se revela cuando empiece el partido (al cerrarse las predicciones)">🔒</span>';
-      return`<div class="ppr">
-        <span class="ppr-m">${m.home.f} ${m.home.n} vs ${m.away.n} ${m.away.f}</span>
-        <span class="ppr-s">${predCell}</span>
-        <span class="ppr-i"><span class="${cls}">${ind}</span>${(r&&r.h!==undefined)?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
-      </div>`;
-    }).join('');
-    return`<div style="margin-bottom:.7rem">
-      <div style="font-size:.75rem;font-weight:800;color:var(--p);margin-bottom:.3rem;display:flex;align-items:center;gap:.35rem">
-        <span class="gbadge">${g}</span>${GROUPS[g].teams.map(t=>t.f).join('')}
-        ${gwTeam&&gwRevealed?`<span style="margin-left:auto;font-size:.7rem;color:var(--muted)">Gana: ${gwTeam.f} ${gwTeam.n}</span>`:(gwPred&&!gwRevealed?'<span style="margin-left:auto;font-size:.7rem;color:var(--muted)">Gana: 🔒</span>':'')}
-      </div>${rows}</div>`;
+    const val=(gwTeam&&gwRevealed)?`${gwTeam.f} ${gwTeam.n}`:(gwPred&&!gwRevealed?'🔒':'—');
+    return`<span class="gw-chip"><b style="color:var(--p)">${g}</b> ${val}</span>`;
   }).join('');
 
   document.getElementById('mo-content').innerHTML=`
@@ -2337,8 +2361,10 @@ function showProfile(uid){
         <button class="pc-send" onclick="addProfileComment('${esc(uid)}')">Enviar</button>
       </div>
     </div>
-    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">📋 Predicciones por grupo</div>
+    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">📋 Predicciones <span style="font-size:.66rem;color:var(--muted);font-weight:600">(orden cronológico)</span></div>
     ${groupsHTML}
+    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin:.95rem 0 .5rem">🏆 Ganadores de grupo</div>
+    <div class="gw-chips">${gwChipsHTML}</div>
   `;
   document.getElementById('mo').classList.add('open');
   loadProfileComments(uid);
