@@ -2088,19 +2088,24 @@ function savePred(matchId,side,val){
   },900);
 }
 
+/* Los picks de "ganador de grupo" se cierran a partir del 18/6 (00:00 ARG) — "a partir de mañana" (hoy 17/6) */
+const GW_LOCK_MS=new Date('2026-06-18T00:00:00-03:00').getTime();
+function gwLocked(){return Date.now()>=GW_LOCK_MS;}
+
 /* ═══════════════ BRACKET ═══════════════ */
 function renderBracket(){
   const el=document.getElementById('bracket-c');
   if(!currentUser)return;
   const pred=myPreds();
   const tOpts=sel=>ALL_TEAMS.map(t=>`<option value="${t.n}"${t.n===sel?' selected':''}>${t.f} ${t.n}</option>`).join('');
+  const gwLk=gwLocked();
   const gwH=GK.map(g=>{
     const ts=GROUPS[g].teams,sel=pred['gw_'+g]||'';
     return`<div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem">
       <span class="gbadge">${g}</span>
-      <select class="fi" style="flex:1" onchange="saveSpec('gw_${g}',this.value)">
+      <select class="fi" style="flex:1" ${gwLk?'disabled':''} onchange="saveSpec('gw_${g}',this.value)">
         <option value="">– Ganador –</option>${ts.map(t=>`<option value="${t.n}"${t.n===sel?' selected':''}>${t.f} ${t.n}</option>`).join('')}
-      </select></div>`;
+      </select>${gwLk?'<span title="Cerrado — ya no se puede cambiar">🔒</span>':''}</div>`;
   }).join('');
   el.innerHTML=`
     <div class="cc"><div style="font-size:2.2rem;margin-bottom:.3rem">🏆</div>
@@ -2115,12 +2120,14 @@ function renderBracket(){
     <div class="card"><div class="ch">🥉 Tercer lugar <span style="font-size:.68rem;color:var(--muted)">(+2 pts)</span></div>
       <select class="fi" onchange="saveSpec('thirdPlace',this.value)"><option value="">–</option>${tOpts(pred.thirdPlace||'')}</select></div>
     <div class="card"><div class="ch">🏅 Ganadores de grupo <span style="font-size:.68rem;color:var(--muted)">(+2 pts c/u)</span></div>
+      ${gwLk?'<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem;line-height:1.4">🔒 La selección de ganadores de grupo está cerrada (no se puede cambiar).</div>':''}
       <div class="gw-g">${gwH}</div></div>
     <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.2rem 0">Campeón 5 pts · Sub 3 pts · 3ro 2 pts · Ganador grupo 2 pts</div>
   `;
 }
 
 function saveSpec(key,val){
+  if(key.indexOf('gw_')===0&&gwLocked()){toast('🔒 Los ganadores de grupo ya no se pueden cambiar');renderBracket();return;}
   if(previewMode){
     previewPreds[key]=val;
     persistPreviewPreds();
@@ -2312,7 +2319,7 @@ function showProfile(uid){
   const gwChipsHTML=GK.map(g=>{
     const gwPred=pred['gw_'+g];
     const gwTeam=gwPred?GROUPS[g].teams.find(t=>t.n===gwPred):null;
-    const gwRevealed=!lock||isGroupComplete(g,globalResults);
+    const gwRevealed=!lock||gwLocked()||isGroupComplete(g,globalResults);
     const val=(gwTeam&&gwRevealed)?`${gwTeam.f} ${gwTeam.n}`:(gwPred&&!gwRevealed?'🔒':'—');
     return`<span class="gw-chip"><b style="color:var(--p)">${g}</b> ${val}</span>`;
   }).join('');
