@@ -607,6 +607,13 @@ body.preview-active #screen-app .hdr-back,body.preview-active #screen-app .hdr-c
 .chat-fab:active{transform:scale(.94)}
 body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!important}
 .chat-fab-badge{position:absolute;top:-2px;right:-2px;background:var(--red);color:var(--on-accent);font-size:.62rem;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
+/* Recordatorio flotante (cierre ganadores de grupo) — arriba del FAB de chat */
+.gw-reminder{position:fixed;left:50%;transform:translateX(-50%);bottom:max(6.4rem,calc(env(safe-area-inset-bottom) + 6rem));width:min(420px,calc(100vw - 1.5rem));z-index:350;display:flex;align-items:center;gap:.55rem;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:12px;padding:.6rem .7rem;box-shadow:0 8px 28px rgba(13,20,84,.22);animation:gwRemIn .25s ease-out}
+@keyframes gwRemIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.gw-reminder-ic{font-size:1.1rem;flex-shrink:0;line-height:1}
+.gw-reminder-txt{flex:1;font-size:.76rem;line-height:1.35;color:var(--text)}
+.gw-reminder-cta{flex-shrink:0;background:var(--p);color:var(--on-accent);border:none;border-radius:8px;padding:.38rem .65rem;font-size:.75rem;font-weight:800;cursor:pointer;white-space:nowrap}
+.gw-reminder-x{flex-shrink:0;background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:.1rem .25rem;line-height:1}
 .chat-panel{position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));width:min(380px,calc(100vw - 1.5rem));height:min(70vh,520px);background:var(--surface);border-radius:16px;box-shadow:0 12px 40px rgba(13,20,84,.3);z-index:var(--z-panel);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--border)}
 .chat-panel.open{display:flex}
 .chat-hdr{background:linear-gradient(135deg,var(--p),var(--p2));color:var(--on-accent);padding:.75rem 1rem;font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -932,6 +939,14 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
   </div>
 
   <button class="info-footer" onclick="openInfoModal()">ℹ️ Preguntas frecuentes · Privacidad · Acerca</button>
+
+  <!-- Recordatorio flotante: cierre de ganadores de grupo -->
+  <div class="gw-reminder" id="gw-reminder" style="display:none">
+    <span class="gw-reminder-ic">⏰</span>
+    <div class="gw-reminder-txt"></div>
+    <button class="gw-reminder-cta" onclick="gotoGwPicks()">Elegir</button>
+    <button class="gw-reminder-x" onclick="dismissGwReminder()" aria-label="Cerrar recordatorio">✕</button>
+  </div>
 
   <!-- CHAT del grupo -->
   <button class="chat-fab" id="chat-fab" onclick="toggleChat()" title="Chat del grupo">💬<span class="chat-fab-badge" id="chat-badge" style="display:none">0</span></button>
@@ -1742,6 +1757,7 @@ function nav(v){
 }
 function renderCurrentView(){
   if(!currentGroup)return;
+  maybeShowGwReminder();
   // Skip re-render if user is actively typing in the current view
   // (evita que el listener de Firestore destruya el input que estás usando)
   const active=document.activeElement;
@@ -2091,6 +2107,26 @@ function savePred(matchId,side,val){
 /* Los picks de "ganador de grupo" se cierran a partir del 18/6 (00:00 ARG) — "a partir de mañana" (hoy 17/6) */
 const GW_LOCK_MS=new Date('2026-06-18T00:00:00-03:00').getTime();
 function gwLocked(){return Date.now()>=GW_LOCK_MS;}
+
+/* Recordatorio flotante: aparece el último día antes del cierre (descartable, persiste) */
+function gwReminderDismissed(){try{return localStorage.getItem('prode-gw-reminder-dismissed')==='1';}catch(e){return false;}}
+function maybeShowGwReminder(){
+  const el=document.getElementById('gw-reminder');if(!el)return;
+  const left=GW_LOCK_MS-Date.now();
+  const inWindow=currentUser&&currentGroup&&!previewMode&&left>0&&left<=86400000; // último día
+  if(!inWindow||gwReminderDismissed()){el.style.display='none';return;}
+  const missing=GK.filter(g=>!myPreds()['gw_'+g]).length;
+  const txt=el.querySelector('.gw-reminder-txt');
+  if(txt)txt.innerHTML=missing>0
+    ? `Hoy se cierra la selección de <b>ganadores de grupo</b> — te faltan <b>${missing} de 12</b>.`
+    : `Hoy se cierra la selección de <b>ganadores de grupo</b>. Repasá tus picks si querés cambiarlos.`;
+  el.style.display='flex';
+}
+function dismissGwReminder(){
+  try{localStorage.setItem('prode-gw-reminder-dismissed','1');}catch(e){}
+  const el=document.getElementById('gw-reminder');if(el)el.style.display='none';
+}
+function gotoGwPicks(){nav('bracket');dismissGwReminder();}
 
 /* ═══════════════ BRACKET ═══════════════ */
 function renderBracket(){
