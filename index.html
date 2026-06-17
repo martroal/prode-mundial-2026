@@ -2296,21 +2296,24 @@ function renderTabla(){
 
   renderGwCompare();
   const results=simMode?mergedRes():(globalResults||{});
-  const done=MATCHES.filter(m=>results[m.id]&&results[m.id].h!==undefined);
-  if(!done.length){document.getElementById('compare-c').innerHTML='<p style="color:var(--muted);font-size:.83rem">Sin resultados aún.</p>';return;}
-  const recent=done.slice(-6).reverse();
+  // Mostrar partidos que YA EMPEZARON (anti-copia: al arrancar ya no se puede cambiar), aunque todavía no tengan resultado
+  const started=MATCHES.filter(m=>matchStarted(m.id)||(results[m.id]&&results[m.id].h!==undefined&&results[m.id].h!==''))
+    .sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
+  if(!started.length){document.getElementById('compare-c').innerHTML='<p style="color:var(--muted);font-size:.83rem">Ningún partido empezó todavía.</p>';return;}
+  const recent=started.slice(-6).reverse();
   document.getElementById('compare-c').innerHTML=recent.map(m=>{
     const r=results[m.id];
+    const hasR=r&&r.h!==undefined&&r.h!=='';
     const isSim=!globalResults?.[m.id]&&currentGroup?.simResults?.[m.id];
     const preds=Object.entries(groupMembers).map(([uid,mem])=>{
       const pd=mem.predictions?.[m.id]||{};
       if(pd.h===undefined||pd.h==='')return`<span class="cpi cpu">${mem.displayName.split(' ')[0]}: ?</span>`;
-      let cls='cpw';
-      if(+pd.h===r.h&&+pd.a===r.a)cls='cpe';
-      else if(Math.sign(pd.h-pd.a)===Math.sign(r.h-r.a))cls='cpr2';
+      let cls='cpu';
+      if(hasR){cls='cpw';if(+pd.h===r.h&&+pd.a===r.a)cls='cpe';else if(Math.sign(pd.h-pd.a)===Math.sign(r.h-r.a))cls='cpr2';}
       return`<span class="cpi ${cls}">${mem.displayName.split(' ')[0]}: ${pd.h}-${pd.a}</span>`;
     }).join('');
-    return`<div class="cpr"><div class="cpm">${m.home.f} ${m.home.n} <b>${r.h}-${r.a}</b> ${m.away.n} ${m.away.f}
+    const scoreLbl=hasR?`<b>${r.h}-${r.a}</b>`:`<span style="font-size:.64rem;color:var(--muted);font-weight:700" title="El partido empezó — predicciones reveladas, falta cargar el resultado">⏳ en juego</span>`;
+    return`<div class="cpr"><div class="cpm">${m.home.f} ${m.home.n} ${scoreLbl} ${m.away.n} ${m.away.f}
       <span style="font-size:.63rem;color:var(--muted)"> G.${m.group}</span>
       ${isSim?'<span class="tag tag-sim" style="margin-left:.3rem">SIM</span>':''}</div>
       <div class="cpreds">${preds}</div></div>`;
