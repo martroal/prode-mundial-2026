@@ -892,6 +892,11 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
     <div id="panel-c"></div>
   </div>
   <div class="view" id="view-admin">
+    <!-- Toggle selección ganadores de grupo -->
+    <div class="card">
+      <div class="ch">🏅 Selección de ganadores de grupo</div>
+      <div id="gw-admin-c"></div>
+    </div>
     <!-- ESPN Sync -->
     <div class="card" style="border:2px solid var(--green)">
       <div class="ch" style="color:var(--green)">🔄 Sincronización automática (ESPN)</div>
@@ -2113,9 +2118,32 @@ function savePred(matchId,side,val){
   },900);
 }
 
-/* Los picks de "ganador de grupo" se cierran a partir del 18/6 (00:00 ARG) — "a partir de mañana" (hoy 17/6) */
+/* Los picks de "ganador de grupo" se cierran a partir del 18/6 (00:00 ARG) — "a partir de mañana" (hoy 17/6).
+   El admin puede forzar abrir/cerrar para todo el grupo con currentGroup.gwOverride ('open' | 'closed'). */
 const GW_LOCK_MS=new Date('2026-06-18T00:00:00-03:00').getTime();
-function gwLocked(){return Date.now()>=GW_LOCK_MS;}
+function gwLocked(){
+  const ov=currentGroup?.gwOverride;
+  if(ov==='open')return false;   // forzado abierto por admin
+  if(ov==='closed')return true;  // forzado cerrado por admin
+  return Date.now()>=GW_LOCK_MS; // default: por fecha
+}
+function setGwOverride(state){
+  if(!currentGroup||!isSuperAdmin())return;
+  const val=(state==='open'||state==='closed')?state:firebase.firestore.FieldValue.delete();
+  db.collection('grupos').doc(currentGroup.id).update({gwOverride:val})
+    .then(()=>toast(state==='open'?'🔓 Selección abierta para todos':state==='closed'?'🔒 Selección cerrada para todos':'↩️ Volvió al cierre automático por fecha'))
+    .catch(e=>toast('❌ '+e.message));
+}
+function renderGwAdmin(){
+  const el=document.getElementById('gw-admin-c');if(!el)return;
+  const open=!gwLocked();
+  const ov=currentGroup?.gwOverride;
+  const src=ov==='open'?'forzada abierta':ov==='closed'?'forzada cerrada':(open?'abierta por fecha':'cerrada por fecha (18/6)');
+  el.innerHTML=`
+    <p style="font-size:.76rem;color:var(--muted);margin-bottom:.6rem;line-height:1.45">Estado: <b style="color:${open?'var(--green)':'var(--red)'}">${open?'🟢 ABIERTA':'🔴 CERRADA'}</b> <span style="font-size:.7rem">(${src})</span><br>Cierre automático: 18/6 00:00. Podés forzar abrir/cerrar para todos (ej. si alguien quedó sin elegir).</p>
+    <button class="btn bblock" onclick="setGwOverride('${open?'closed':'open'}')" style="background:${open?'var(--red)':'var(--green)'};color:var(--on-accent);font-weight:800">${open?'🔒 Cerrar selección':'🔓 Abrir selección'}</button>
+    ${ov?`<button class="btn bbl bblock" style="margin-top:.45rem;font-size:.78rem" onclick="setGwOverride('')">↩️ Volver al automático por fecha</button>`:''}`;
+}
 
 /* Recordatorio flotante: aparece el último día antes del cierre (descartable, persiste) */
 function gwReminderDismissed(){try{return localStorage.getItem('prode-gw-reminder-dismissed')==='1';}catch(e){return false;}}
@@ -3094,6 +3122,7 @@ function renderBracketKO(){
 /* ═══════════════ ADMIN ═══════════════ */
 function renderAdmin(){
   if(!currentGroup||!isSuperAdmin())return;
+  renderGwAdmin();
   renderGTabs('admin-gtabs','setAdminGroup');
   renderAdminMatches();
   renderAdminSpecial();
