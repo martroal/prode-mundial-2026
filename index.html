@@ -1921,6 +1921,29 @@ function predMatchRowHTML(m,pred){
 }
 
 // Fila de predicción para un partido KO (equipos del bracket REAL; bloqueado hasta que se definan)
+function koDefById(id){
+  for(const r of KO_ROUNDS){const m=(KO_STRUCTURE[r.key]||[]).find(d=>d.id===id);if(m)return m;}
+  return null;
+}
+// Bloque "¿quién pasa?" de un partido KO (solo cuando hay empate). Se actualiza inline, sin re-render total.
+function koTieHTML(def,home,away,p){
+  const hv=p?p.h:undefined,av=p?p.a:undefined;
+  const isTie=hv!==''&&hv!==undefined&&hv!==null&&av!==''&&av!==undefined&&av!==null&&(+hv===+av);
+  if(!isTie)return '';
+  return `<div class="ko-tie">
+    <span class="ko-tie-lbl">¿Quién pasa?</span>
+    <button class="ko-tie-btn${p.winner==='h'?' sel':''}" onclick="savePredWinner('${def.id}','h');updateKoTie('${def.id}')">${home.f} ${home.n}</button>
+    <button class="ko-tie-btn${p.winner==='a'?' sel':''}" onclick="savePredWinner('${def.id}','a');updateKoTie('${def.id}')">${away.f} ${away.n}</button>
+  </div>`;
+}
+function updateKoTie(id){
+  const slot=document.getElementById('ko-tie-'+id);if(!slot)return;
+  const def=koDefById(id);if(!def)return;
+  const home=resolveSlot(def.home,globalResults),away=resolveSlot(def.away,globalResults);
+  if(!(home&&away)){slot.innerHTML='';return;}
+  slot.innerHTML=koTieHTML(def,home,away,myPreds()[id]||{});
+}
+
 function predKoRowHTML(def,pred){
   const home=resolveSlot(def.home,globalResults),away=resolveSlot(def.away,globalResults);
   const isFinal=def.id==='f_1',isTP=def.id.startsWith('tp');
@@ -1955,25 +1978,21 @@ function predKoRowHTML(def,pred){
       <div class="tn a">${away.f} ${away.n}</div>
     </div>${tieTxt}`;
   }
-  const tie=isTie?`<div class="ko-tie">
-    <span class="ko-tie-lbl">¿Quién pasa?</span>
-    <button class="ko-tie-btn${p.winner==='h'?' sel':''}" onclick="savePredWinner('${def.id}','h');renderPreds()">${home.f} ${home.n}</button>
-    <button class="ko-tie-btn${p.winner==='a'?' sel':''}" onclick="savePredWinner('${def.id}','a');renderPreds()">${away.f} ${away.n}</button>
-  </div>`:'';
   return `${tag}${schedHtml}
   <div class="mr">
     <div class="tn h">${home.f} ${home.n}</div>
     <div class="sw"><div class="siw">
       <div class="si-wrap"><button class="si-btn" onclick="bumpPred('${def.id}','h',-1)">−</button>
-        <input class="si${hv!==''?' f':''}" data-pred="${def.id}_h" type="number" min="0" max="20" value="${hv}" placeholder="-" onchange="savePred('${def.id}','h',this.value);renderPreds()">
+        <input class="si${hv!==''?' f':''}" data-pred="${def.id}_h" type="number" min="0" max="20" value="${hv}" placeholder="-" onchange="savePred('${def.id}','h',this.value);this.classList.toggle('f',this.value!=='');updateKoTie('${def.id}')">
         <button class="si-btn" onclick="bumpPred('${def.id}','h',1)">+</button></div>
       <span class="sdiv">:</span>
       <div class="si-wrap"><button class="si-btn" onclick="bumpPred('${def.id}','a',-1)">−</button>
-        <input class="si${av!==''?' f':''}" data-pred="${def.id}_a" type="number" min="0" max="20" value="${av}" placeholder="-" onchange="savePred('${def.id}','a',this.value);renderPreds()">
+        <input class="si${av!==''?' f':''}" data-pred="${def.id}_a" type="number" min="0" max="20" value="${av}" placeholder="-" onchange="savePred('${def.id}','a',this.value);this.classList.toggle('f',this.value!=='');updateKoTie('${def.id}')">
         <button class="si-btn" onclick="bumpPred('${def.id}','a',1)">+</button></div>
     </div><div style="display:flex;gap:.3rem;align-items:center">${rD}${ind}</div></div>
     <div class="tn a">${away.f} ${away.n}</div>
-  </div>${tie}`;
+  </div>
+  <div class="ko-tie-slot" id="ko-tie-${def.id}">${koTieHTML(def,home,away,p)}</div>`;
 }
 
 function renderPreds(){
@@ -2086,10 +2105,10 @@ function bumpPred(matchId,side,delta){
   const newVal=Math.max(0,Math.min(20,curNum+delta));
   if(newVal===curNum&&cur!==''&&cur!==undefined)return;
   savePred(matchId,side,String(newVal));
-  // En eliminatorias re-renderizamos (tie-picker + propagación del bracket); en grupos basta el input
-  if(predsStage==='ko'&&curView==='preds'){renderPreds();return;}
   const input=document.querySelector(`input[data-pred="${matchId}_${side}"]`);
   if(input){input.value=newVal;input.classList.add('f');}
+  // En eliminatorias actualizamos solo el desempate de esa fila (sin re-render total → no salta el scroll)
+  if(predsStage==='ko'&&curView==='preds')updateKoTie(matchId);
 }
 
 function savePred(matchId,side,val){
