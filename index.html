@@ -2471,6 +2471,36 @@ function showProfile(uid){
     const val=(gwTeam&&gwRevealed)?`${gwTeam.f} ${gwTeam.n}`:(gwPred&&!gwRevealed?'🔒':'—');
     return`<span class="gw-chip"><b style="color:var(--p)">${g}</b> ${val}</span>`;
   }).join('');
+  // Eliminatorias: solo partidos con equipos definidos, orden cronológico, mismo anti-copia (revela al kickoff)
+  let _lastKoDate=null;
+  const koHTML=KO_MATCHES.map(def=>{
+    const home=resolveSlot(def.home,globalResults),away=resolveSlot(def.away,globalResults);
+    return (home&&away)?{def,home,away}:null;
+  }).filter(Boolean).sort((a,b)=>matchDateTime(a.def.id)-matchDateTime(b.def.id)).map(o=>{
+    const def=o.def,home=o.home,away=o.away;
+    const p=pred[def.id]||{},r=globalResults?.[def.id];
+    const revealed=!lock||matchStarted(def.id);
+    const hasP=p.h!==undefined&&p.h!==''&&p.a!==undefined&&p.a!=='';
+    let ind='',cls='';
+    if(revealed&&r&&r.h!==undefined&&hasP){
+      const po=Math.sign(p.h-p.a),ro=Math.sign(r.h-r.a);
+      if(+p.h===r.h&&+p.a===r.a){ind='★★★';cls='ie';}
+      else if(po===ro){ind='★';cls='ir';}
+      else{ind='✗';cls='iw';}
+    }
+    let predCell;
+    if(!revealed)predCell='<span title="Se revela cuando empiece el partido">🔒</span>';
+    else if(hasP){predCell=`${p.h}-${p.a}`;if(+p.h===+p.a&&p.winner)predCell+=` <span style="font-size:.58rem;color:var(--muted)">(${(p.winner==='h'?home:away).f} pasa)</span>`;}
+    else predCell='?';
+    const s=SCHEDULE_MAP[def.id];
+    let dayHdr='';
+    if(s&&s.date!==_lastKoDate){_lastKoDate=s.date;dayHdr=`<div class="ppr-day">📅 ${s.date}</div>`;}
+    return`${dayHdr}<div class="ppr">
+      <span class="ppr-m"><b style="color:var(--p)">${koShortTag(def.id)}</b> ${home.f} ${home.n} vs ${away.n} ${away.f}</span>
+      <span class="ppr-s">${predCell}</span>
+      <span class="ppr-i"><span class="${cls}">${ind}</span>${(r&&r.h!==undefined)?`<span style="font-size:.63rem;color:var(--green);margin-left:.2rem">[${r.h}-${r.a}]</span>`:''}</span>
+    </div>`;
+  }).join('');
 
   document.getElementById('mo-content').innerHTML=`
     <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem">
@@ -2516,10 +2546,11 @@ function showProfile(uid){
         <button class="pc-send" onclick="addProfileComment('${esc(uid)}')">Enviar</button>
       </div>
     </div>
-    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">📋 Predicciones <span style="font-size:.66rem;color:var(--muted);font-weight:600">(orden cronológico)</span></div>
+    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">⚽ Fase de grupos <span style="font-size:.66rem;color:var(--muted);font-weight:600">(orden cronológico)</span></div>
     ${groupsHTML}
     <div style="font-size:.82rem;font-weight:800;color:var(--p);margin:.95rem 0 .5rem">🏆 Ganadores de grupo</div>
     <div class="gw-chips">${gwChipsHTML}</div>
+    ${koHTML?`<div style="font-size:.82rem;font-weight:800;color:var(--p);margin:.95rem 0 .5rem">🏆 Eliminatorias</div>${koHTML}`:''}
   `;
   document.getElementById('mo').classList.add('open');
   loadProfileComments(uid);
