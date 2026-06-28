@@ -1927,6 +1927,10 @@ function koDefById(id){
   for(const r of KO_ROUNDS){const m=(KO_STRUCTURE[r.key]||[]).find(d=>d.id===id);if(m)return m;}
   return null;
 }
+// Etiqueta corta de ronda KO (para el tag de Comparar)
+function koShortTag(id){
+  return {r32:'16vos',r16:'8vos',qf:'4tos',sf:'Semi',f:'Final',tp:'3er'}[(id||'').split('_')[0]]||'KO';
+}
 // Bloque "¿quién pasa?" de un partido KO (solo cuando hay empate). Se actualiza inline, sin re-render total.
 function koTieHTML(def,home,away,p){
   const hv=p?p.h:undefined,av=p?p.a:undefined;
@@ -2058,7 +2062,7 @@ function renderPreds(){
     const gsDone=isGroupStageComplete(globalResults);
     if(predsModeK==='fase'){
       const round=KO_ROUNDS.find(r=>r.key===curFase)||KO_ROUNDS[0];
-      const matches=KO_STRUCTURE[round.key];
+      const matches=(KO_STRUCTURE[round.key]||[]).slice().sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
       html='<div class="card">';
       html+=`<div class="ch">${round.icon} ${round.label} <span style="font-size:.7rem;color:var(--muted);font-weight:600">(${matches.length} ${matches.length===1?'partido':'partidos'})</span></div>`;
       matches.forEach(def=>{html+=predKoRowHTML(def,pred);});
@@ -2358,25 +2362,32 @@ function renderTabla(){
 
   renderGwCompare();
   const results=simMode?mergedRes():(globalResults||{});
-  // Mostrar partidos que YA EMPEZARON (anti-copia: al arrancar ya no se puede cambiar), aunque todavía no tengan resultado
-  const started=MATCHES.filter(m=>matchStarted(m.id)||(results[m.id]&&results[m.id].h!==undefined&&results[m.id].h!==''))
+  const hasResId=id=>results[id]&&results[id].h!==undefined&&results[id].h!=='';
+  // Partidos de grupo + eliminatorias (equipos resueltos) que YA EMPEZARON (anti-copia), aunque no tengan resultado
+  const groupItems=MATCHES.map(m=>({id:m.id,home:m.home,away:m.away,tag:'G.'+m.group}));
+  const koItems=KO_MATCHES.map(m=>{
+    const home=resolveSlot(m.home,globalResults),away=resolveSlot(m.away,globalResults);
+    return (home&&away)?{id:m.id,home,away,tag:koShortTag(m.id)}:null;
+  }).filter(Boolean);
+  const items=groupItems.concat(koItems)
+    .filter(it=>matchStarted(it.id)||hasResId(it.id))
     .sort((a,b)=>matchDateTime(a.id)-matchDateTime(b.id));
-  if(!started.length){document.getElementById('compare-c').innerHTML='<p style="color:var(--muted);font-size:.83rem">Ningún partido empezó todavía.</p>';return;}
-  const recent=started.slice(-6).reverse();
-  document.getElementById('compare-c').innerHTML=recent.map(m=>{
-    const r=results[m.id];
+  if(!items.length){document.getElementById('compare-c').innerHTML='<p style="color:var(--muted);font-size:.83rem">Ningún partido empezó todavía.</p>';return;}
+  const recent=items.slice(-6).reverse();
+  document.getElementById('compare-c').innerHTML=recent.map(it=>{
+    const r=results[it.id];
     const hasR=r&&r.h!==undefined&&r.h!=='';
-    const isSim=!globalResults?.[m.id]&&currentGroup?.simResults?.[m.id];
+    const isSim=!globalResults?.[it.id]&&currentGroup?.simResults?.[it.id];
     const preds=Object.entries(groupMembers).map(([uid,mem])=>{
-      const pd=mem.predictions?.[m.id]||{};
+      const pd=mem.predictions?.[it.id]||{};
       if(pd.h===undefined||pd.h==='')return`<span class="cpi cpu">${mem.displayName.split(' ')[0]}: ?</span>`;
       let cls='cpu';
       if(hasR){cls='cpw';if(+pd.h===r.h&&+pd.a===r.a)cls='cpe';else if(Math.sign(pd.h-pd.a)===Math.sign(r.h-r.a))cls='cpr2';}
       return`<span class="cpi ${cls}">${mem.displayName.split(' ')[0]}: ${pd.h}-${pd.a}</span>`;
     }).join('');
     const scoreLbl=hasR?`<b>${r.h}-${r.a}</b>`:`<span style="font-size:.64rem;color:var(--muted);font-weight:700" title="El partido empezó — predicciones reveladas, falta cargar el resultado">⏳ en juego</span>`;
-    return`<div class="cpr"><div class="cpm">${m.home.f} ${m.home.n} ${scoreLbl} ${m.away.n} ${m.away.f}
-      <span style="font-size:.63rem;color:var(--muted)"> G.${m.group}</span>
+    return`<div class="cpr"><div class="cpm">${it.home.f} ${it.home.n} ${scoreLbl} ${it.away.n} ${it.away.f}
+      <span style="font-size:.63rem;color:var(--muted)"> ${it.tag}</span>
       ${isSim?'<span class="tag tag-sim" style="margin-left:.3rem">SIM</span>':''}</div>
       <div class="cpreds">${preds}</div></div>`;
   }).join('');
