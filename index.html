@@ -1424,6 +1424,7 @@ let curJornada   = 1;        // jornada 1-3
 let curFase      = 'r32';    // ronda KO activa
 let curKoDia     = 0;        // índice día activo (eliminatorias)
 let predsStage   = 'grupos'; // 'grupos' | 'ko' — nivel 1 de Predicciones
+let predsStageAutoset = false; // default automático (ko si terminó la fase de grupos) — una vez por entrada
 let predsModeG   = 'dia';    // grupos: 'dia' | 'grupo' | 'jornada'
 let predsModeK   = 'fase';   // eliminatorias: 'fase' | 'dia'
 let previewMode  = false;    // true cuando no hay user logueado — predicciones a localStorage
@@ -1634,6 +1635,7 @@ function closeMI(){document.getElementById('mi-overlay').classList.remove('open'
 /* ═══════════════ ENTER / LEAVE GROUP ═══════════════ */
 function enterGroup(groupId){
   detach();simMode=false;curGroup='A';
+  predsStageAutoset=false; // re-evaluar etapa default (grupos/ko) con los resultados de este grupo
   // Predicciones arranca en el día de hoy (o el próximo con partidos)
   curDia=todayDayIndex(groupStageDays());
   curKoDia=todayDayIndex(koStageDays());
@@ -1995,7 +1997,20 @@ function predKoRowHTML(def,pred){
   <div class="ko-tie-slot" id="ko-tie-${def.id}">${koTieHTML(def,home,away,p)}</div>`;
 }
 
+// Etapa default al abrir Predicciones: 'ko' si ya terminó la fase de grupos, si no 'grupos'.
+// Una sola vez por entrada al grupo (espera a que carguen los resultados; no pisa cambios manuales).
+function autoDefaultPredsStage(){
+  if(predsStageAutoset)return;
+  if(!globalResults||!Object.keys(globalResults).length)return; // todavía sin resultados cargados
+  predsStageAutoset=true;
+  const stage=isGroupStageComplete(globalResults)?'ko':'grupos';
+  predsStage=stage;
+  document.getElementById('ps-grupos')?.classList.toggle('active',stage==='grupos');
+  document.getElementById('ps-ko')?.classList.toggle('active',stage==='ko');
+}
+
 function renderPreds(){
+  autoDefaultPredsStage();
   renderPredsTabs();
   const el=document.getElementById('preds-c');
   if(!currentUser){el.innerHTML='';return;}
