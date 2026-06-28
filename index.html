@@ -2546,11 +2546,11 @@ function showProfile(uid){
         <button class="pc-send" onclick="addProfileComment('${esc(uid)}')">Enviar</button>
       </div>
     </div>
-    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">⚽ Fase de grupos <span style="font-size:.66rem;color:var(--muted);font-weight:600">(orden cronológico)</span></div>
+    ${koHTML?`<div style="font-size:.82rem;font-weight:800;color:var(--p);margin-bottom:.6rem">🏆 Eliminatorias <span style="font-size:.66rem;color:var(--muted);font-weight:600">(orden cronológico)</span></div>${koHTML}`:''}
+    <div style="font-size:.82rem;font-weight:800;color:var(--p);margin:${koHTML?'.95rem':'0'} 0 .6rem">⚽ Fase de grupos <span style="font-size:.66rem;color:var(--muted);font-weight:600">(orden cronológico)</span></div>
     ${groupsHTML}
     <div style="font-size:.82rem;font-weight:800;color:var(--p);margin:.95rem 0 .5rem">🏆 Ganadores de grupo</div>
     <div class="gw-chips">${gwChipsHTML}</div>
-    ${koHTML?`<div style="font-size:.82rem;font-weight:800;color:var(--p);margin:.95rem 0 .5rem">🏆 Eliminatorias</div>${koHTML}`:''}
   `;
   document.getElementById('mo').classList.add('open');
   loadProfileComments(uid);
