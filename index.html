@@ -1287,6 +1287,13 @@ const R32_THIRD_SLOTS={
   '37':'EFGIJ',  // P85: 1°B vs 3°E/F/G/I/J
   '38':'DEIJL'   // P87: 1°K vs 3°D/E/I/J/L
 };
+// Tabla OFICIAL FIFA de asignación de terceros (clave = grupos clasificados ordenados → slot:grupo).
+// El greedy no alcanza (hay varias asignaciones válidas; FIFA usa esta tabla para desempatar).
+// Combinación real del Mundial 2026 (verificada con ESPN + Wikipedia). Se pueden agregar más filas si hace falta.
+const FIFA_THIRD_TABLE={
+  // 3ros clasificados: B,D,E,F,I,J,K,L
+  'BDEFIJKL':{'31':'D','32':'F','33':'E','34':'K','35':'B','36':'I','37':'J','38':'L'}
+};
 function _validRes(r){return r&&r.h!==undefined&&r.h!==''&&r.a!==undefined&&r.a!==''}
 function calcStandings(groupKey,pred){
   pred=pred||globalResults||{};
@@ -1316,18 +1323,28 @@ function getBest3rds(pred){
   thirds.sort((a,b)=>b.pts-a.pts||b.dg-a.dg||b.gf-a.gf);
   return thirds.slice(0,8);
 }
-// Asignación greedy de los 8 mejores 3ros a los 8 slots de R32 respetando las restricciones FIFA
+// Asignación de los 8 mejores 3ros a los 8 slots de R32.
+// 1º intenta la tabla OFICIAL FIFA según la combinación de grupos clasificados; si no está, cae al greedy.
 function assignBest3rds(pred){
   pred=pred||globalResults||{};
-  const qualifying=getBest3rds(pred);
+  const qualifying=getBest3rds(pred).filter(t=>t.team);
+  const byGroup={};qualifying.forEach(t=>{byGroup[t.group]=t.team;});
   const assignment={};
-  const used=new Set();
-  ['31','32','33','34','35','36','37','38'].forEach(slot=>{
-    const allowed=R32_THIRD_SLOTS[slot];
-    const cand=qualifying.find(t=>t.team&&allowed.includes(t.group)&&!used.has(t.group));
-    if(cand){assignment[slot]=cand.team;used.add(cand.group);}
-    else assignment[slot]=null;
-  });
+  const key=qualifying.map(t=>t.group).sort().join('');
+  const table=FIFA_THIRD_TABLE[key];
+  if(table){
+    // Tabla oficial FIFA (combinación conocida)
+    ['31','32','33','34','35','36','37','38'].forEach(slot=>{assignment[slot]=byGroup[table[slot]]||null;});
+  }else{
+    // Fallback greedy respetando los grupos permitidos por slot (combinaciones no tabuladas / sim)
+    const used=new Set();
+    ['31','32','33','34','35','36','37','38'].forEach(slot=>{
+      const allowed=R32_THIRD_SLOTS[slot];
+      const cand=qualifying.find(t=>allowed.includes(t.group)&&!used.has(t.group));
+      if(cand){assignment[slot]=cand.team;used.add(cand.group);}
+      else assignment[slot]=null;
+    });
+  }
   return assignment;
 }
 function isGroupComplete(g,pred){
