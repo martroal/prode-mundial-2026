@@ -877,6 +877,10 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
       <div style="flex:1;font-weight:800;font-size:.88rem;color:var(--p)">🏅 Tabla de posiciones</div>
       <button id="sim-toggle" class="btn bbl" style="padding:.3rem .65rem;font-size:.7rem" onclick="toggleSim()">🔬 Simulación</button>
     </div>
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem">
+      <button id="tabla-sync-btn" class="btn bp" style="padding:.4rem .7rem;font-size:.75rem;white-space:nowrap" onclick="publicSync()">🔄 Actualizar resultados</button>
+      <div id="tabla-sync-status" style="flex:1;font-size:.67rem;color:var(--muted);line-height:1.3"></div>
+    </div>
     <div class="card" style="padding:.5rem"><div id="tabla-c"></div></div>
     <div class="card"><div class="ch">🔍 Comparar</div><div id="compare-c"></div></div>
     <div class="card"><div class="ch">🏅 Ganadores de grupo <span style="font-size:.66rem;color:var(--muted);font-weight:600">· de cada uno</span></div><div id="gw-compare-c"></div></div>
@@ -2344,6 +2348,8 @@ function renderTabla(){
     const banner=document.getElementById('sim-banner');if(banner)banner.innerHTML='';
     return;
   }
+  const ss=document.getElementById('tabla-sync-status');
+  if(ss){const last=+localStorage.getItem('prode-sync-last')||0;ss.innerHTML=last?`Resultados de ESPN · actualizaste por última vez a las <b>${new Date(last).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</b>`:'Trae los resultados terminados desde ESPN. Cualquiera puede actualizar.';}
   const hasSim=Object.keys(currentGroup?.simResults||{}).length>0;
   const banner=document.getElementById('sim-banner');
   if(banner)banner.innerHTML=hasSim?`<div class="sim-banner">
@@ -3651,7 +3657,7 @@ function parseEspnEvent(e){
 
 async function syncFromEspn(opts){
   opts=opts||{};
-  if(!isSuperAdmin()){if(!opts.silent)toast('❌ Solo super-admin');return;}
+  if(!opts.public&&!isSuperAdmin()){if(!opts.silent)toast('❌ Solo super-admin');return;}
   const btn=document.getElementById('espn-sync-btn');
   const statusEl=document.getElementById('espn-sync-status');
   if(btn&&!opts.silent){btn.disabled=true;btn.textContent='⏳ Sincronizando...';}
@@ -3736,6 +3742,7 @@ async function syncFromEspn(opts){
   const hora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   if(statusEl)statusEl.innerHTML=`✅ Última sync: <b>${hora}</b> · ${finished.length} partidos terminados en ESPN · <b>${groupN}</b> grupos + <b>${koN}</b> KO actualizados`;
   if(!opts.silent||total>0)toast(`✅ ESPN: ${total} resultado${total===1?'':'s'} actualizado${total===1?'':'s'}`);
+  return total;
 }
 
 // Auto-sync ON por defecto (super-admin). Se puede apagar con la casilla; la preferencia persiste.
@@ -3751,6 +3758,22 @@ function toggleEspnAuto(on){
   stopEspnAuto();
   if(on){startEspnAuto();toast('🔄 Auto-sync activado (al abrir la app + cada 5 min)');}
   else toast('⏸️ Auto-sync desactivado');
+}
+
+// Botón público (cualquiera de los 6 puede actualizar) con cooldown por usuario para no spamear
+const SYNC_COOLDOWN_MS=90000; // 1,5 min por usuario
+function syncCooldownLeft(){try{const last=+localStorage.getItem('prode-sync-last')||0;return Math.max(0,SYNC_COOLDOWN_MS-(Date.now()-last));}catch(e){return 0;}}
+async function publicSync(){
+  if(!currentUser||previewMode){toast('Iniciá sesión para actualizar');return;}
+  const left=syncCooldownLeft();
+  if(left>0){toast(`⏳ Esperá ${Math.ceil(left/1000)}s para volver a actualizar`);return;}
+  try{localStorage.setItem('prode-sync-last',String(Date.now()));}catch(e){}
+  const btn=document.getElementById('tabla-sync-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Actualizando…';}
+  let total;
+  try{total=await syncFromEspn({public:true});}catch(e){toast('❌ '+e.message);}
+  if(btn){btn.disabled=false;btn.textContent='🔄 Actualizar resultados';}
+  if(curView==='tabla')renderTabla();
 }
 
 /* ═══════════════ TOAST ═══════════════ */
