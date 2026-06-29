@@ -903,8 +903,8 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
       <p style="font-size:.74rem;color:var(--muted);margin-bottom:.6rem;line-height:1.45">Trae los resultados reales de los partidos terminados desde ESPN y los carga solo. Pisa lo que hayas cargado manual.</p>
       <button class="btn bblock" id="espn-sync-btn" onclick="syncFromEspn()" style="background:var(--green);color:var(--on-accent);font-weight:800">🔄 Sincronizar ahora</button>
       <label style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem;font-size:.78rem;font-weight:600;color:var(--text-soft);cursor:pointer">
-        <input type="checkbox" id="espn-auto" onchange="toggleEspnAuto(this.checked)" style="width:18px;height:18px;cursor:pointer">
-        Auto-sincronizar cada 5 min mientras tenga esta pestaña abierta
+        <input type="checkbox" id="espn-auto" checked onchange="toggleEspnAuto(this.checked)" style="width:18px;height:18px;cursor:pointer">
+        Auto-sincronizar al abrir la app y cada 5 min (mientras tengas una pestaña abierta)
       </label>
       <div id="espn-sync-status" style="font-size:.72rem;color:var(--muted);margin-top:.6rem;line-height:1.4"></div>
     </div>
@@ -1682,6 +1682,8 @@ function enterGroup(groupId){
     renderCurrentView();
   });
   subscribeChat(groupId);
+  // Auto-sync de resultados (super-admin): arranca solo al abrir la app si está habilitado
+  if(espnAutoEnabled())startEspnAuto();
 }
 
 function leavGroup(){
@@ -3215,6 +3217,7 @@ function renderBracketKO(){
 /* ═══════════════ ADMIN ═══════════════ */
 function renderAdmin(){
   if(!currentGroup||!isSuperAdmin())return;
+  const cb=document.getElementById('espn-auto');if(cb)cb.checked=espnAutoEnabled();
   renderGwAdmin();
   renderGTabs('admin-gtabs','setAdminGroup');
   renderAdminMatches();
@@ -3735,17 +3738,19 @@ async function syncFromEspn(opts){
   if(!opts.silent||total>0)toast(`✅ ESPN: ${total} resultado${total===1?'':'s'} actualizado${total===1?'':'s'}`);
 }
 
+// Auto-sync ON por defecto (super-admin). Se puede apagar con la casilla; la preferencia persiste.
+function espnAutoEnabled(){try{const v=localStorage.getItem('prode-espn-auto');return v===null?true:v==='1';}catch(e){return true;}}
+function stopEspnAuto(){if(espnAutoTimer){clearInterval(espnAutoTimer);espnAutoTimer=null;}}
+function startEspnAuto(){
+  if(espnAutoTimer||!isSuperAdmin())return;
+  syncFromEspn({silent:true});                 // sync inmediato al arrancar (al abrir la app)
+  espnAutoTimer=setInterval(()=>{if(isSuperAdmin())syncFromEspn({silent:true});},300000); // + cada 5 min
+}
 function toggleEspnAuto(on){
-  if(espnAutoTimer){clearInterval(espnAutoTimer);espnAutoTimer=null;}
-  if(on){
-    syncFromEspn({silent:true});
-    espnAutoTimer=setInterval(()=>{
-      if(isSuperAdmin())syncFromEspn({silent:true});
-    },300000); // 5 min
-    toast('🔄 Auto-sync activado (cada 5 min)');
-  }else{
-    toast('⏸️ Auto-sync desactivado');
-  }
+  try{localStorage.setItem('prode-espn-auto',on?'1':'0');}catch(e){}
+  stopEspnAuto();
+  if(on){startEspnAuto();toast('🔄 Auto-sync activado (al abrir la app + cada 5 min)');}
+  else toast('⏸️ Auto-sync desactivado');
 }
 
 /* ═══════════════ TOAST ═══════════════ */
