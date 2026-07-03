@@ -905,6 +905,11 @@ body.preview-active .chat-fab,body.preview-active .chat-panel{display:none!impor
       <div class="ch">🏅 Selección de ganadores de grupo</div>
       <div id="gw-admin-c"></div>
     </div>
+    <!-- Broma: penalización fantasma -->
+    <div class="card">
+      <div class="ch">🤡 Broma · penalización fantasma</div>
+      <div id="prank-c"></div>
+    </div>
     <!-- ESPN Sync -->
     <div class="card" style="border:2px solid var(--green)">
       <div class="ch" style="color:var(--green)">🔄 Sincronización automática (ESPN)</div>
@@ -2327,6 +2332,14 @@ function saveSpec(key,val){
 }
 
 /* ═══════════════ SCORING ═══════════════ */
+// Penalización "broma" (capa de display, removible, no toca nada real).
+// currentGroup.prank = {uid, points, onlyTarget, badge}. Si onlyTarget, solo el objetivo la ve.
+function prankPenalty(uid){
+  const p=currentGroup?.prank;
+  if(!p||!p.uid||p.uid!==uid||!p.points)return 0;
+  if(p.onlyTarget&&currentUser?.uid!==p.uid)return 0; // "solo él lo ve": el resto lo ve normal
+  return p.points;
+}
 function score(uid,useSim){
   const pred=groupMembers[uid]?.predictions||{};
   const res=useSim?mergedRes():(globalResults||{});
@@ -2349,7 +2362,8 @@ function score(uid,useSim){
   if(res.runnerUp&&pred.runnerUp===res.runnerUp)bonus+=3;
   if(res.thirdPlace&&pred.thirdPlace===res.thirdPlace)bonus+=2;
   GK.forEach(g=>{if(res['gw_'+g]&&pred['gw_'+g]===res['gw_'+g])bonus+=2;});
-  return{exact,r,bonus,total:exact*3+r+bonus};
+  const pen=prankPenalty(uid);
+  return{exact,r,bonus,penalty:pen,total:Math.max(0,exact*3+r+bonus-pen)};
 }
 function mergedRes(){return Object.assign({},currentGroup?.simResults||{},globalResults||{});}
 
@@ -2402,6 +2416,7 @@ function renderTabla(){
         ${isOwner?'<span class="tag tag-owner">👑</span>':''}
         ${s.isBot?'<span class="tag tag-bot">BOT</span>':''}
         ${isMe?'<span class="tag tag-you">vos</span>':''}
+        ${s.penalty>0&&currentGroup?.prank?.badge?`<span class="tag" style="background:var(--red);color:var(--on-accent)">−${s.penalty} pts</span>`:''}
       </div>
       <div><div class="ptb${simMode?' sim':''}">${s.total} pts</div>
         <div class="ptd"><b>${s.preds}/72</b> preds · ${s.exact}×exa · ${s.r}×res</div></div>
@@ -3244,8 +3259,46 @@ function renderBracketKO(){
 }
 
 /* ═══════════════ ADMIN ═══════════════ */
+/* ═══════════════ BROMA: penalización fantasma (Admin) ═══════════════ */
+function renderPrank(){
+  const el=document.getElementById('prank-c');if(!el)return;
+  const pr=currentGroup?.prank;
+  const members=Object.entries(groupMembers).filter(function(e){return !e[1].isBot;});
+  const opts=members.map(function(e){return `<option value="${esc(e[0])}"${pr&&pr.uid===e[0]?' selected':''}>${esc2(memberName(e[1]))}</option>`;}).join('');
+  el.innerHTML=`
+    ${pr?`<div style="font-size:.76rem;color:var(--muted);margin-bottom:.55rem;line-height:1.4;background:var(--surface-2);border-radius:8px;padding:.45rem .6rem">🤡 Activa: <b>${esc2(memberName(groupMembers[pr.uid])||'?')}</b> −<b>${pr.points}</b> pts · ${pr.onlyTarget?'solo él lo ve':'lo ven todos'}${pr.badge?' · con cartelito':''}</div>`:'<div style="font-size:.72rem;color:var(--muted);margin-bottom:.55rem;line-height:1.4">Resta puntos en pantalla a un jugador. No toca sus predicciones ni los resultados — es una capa removible, cero riesgo.</div>'}
+    <select class="fi" id="prank-uid" style="margin-bottom:.5rem"><option value="">– Elegí jugador –</option>${opts}</select>
+    <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.5rem">
+      <input class="fi" id="prank-pts" type="number" min="1" max="9999" value="${pr?pr.points:5}" style="flex:1" placeholder="Puntos a restar">
+      <button class="btn bbl" style="white-space:nowrap;font-size:.72rem;padding:.45rem .55rem" onclick="document.getElementById('prank-pts').value=999">🔻 Al fondo</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:.76rem;margin-bottom:.4rem;cursor:pointer;color:var(--text-soft)"><input type="checkbox" id="prank-only" ${!pr||pr.onlyTarget?'checked':''} style="width:16px;height:16px;cursor:pointer"> Solo él lo ve (los demás lo ven normal)</label>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:.76rem;margin-bottom:.65rem;cursor:pointer;color:var(--text-soft)"><input type="checkbox" id="prank-badge" ${pr&&pr.badge?'checked':''} style="width:16px;height:16px;cursor:pointer"> Mostrar cartelito "−X pts" al lado del nombre</label>
+    <button class="btn bp bblock" onclick="applyPrank()">🤡 Aplicar broma</button>
+    ${pr?`<button class="btn br bblock" style="margin-top:.45rem" onclick="clearPrank()">↩️ Quitar broma (volver a la normalidad)</button>`:''}`;
+}
+function applyPrank(){
+  if(!currentGroup||!isSuperAdmin())return;
+  const uid=document.getElementById('prank-uid')?.value;
+  const points=parseInt(document.getElementById('prank-pts')?.value)||0;
+  const onlyTarget=!!document.getElementById('prank-only')?.checked;
+  const badge=!!document.getElementById('prank-badge')?.checked;
+  if(!uid)return toast('Elegí un jugador');
+  if(points<1)return toast('Poné cuántos puntos restar');
+  db.collection('grupos').doc(currentGroup.id).update({prank:{uid,points,onlyTarget,badge}})
+    .then(()=>toast('🤡 Broma aplicada'))
+    .catch(e=>toast('❌ '+e.message));
+}
+function clearPrank(){
+  if(!currentGroup||!isSuperAdmin())return;
+  db.collection('grupos').doc(currentGroup.id).update({prank:firebase.firestore.FieldValue.delete()})
+    .then(()=>toast('↩️ Broma quitada'))
+    .catch(e=>toast('❌ '+e.message));
+}
+
 function renderAdmin(){
   if(!currentGroup||!isSuperAdmin())return;
+  renderPrank();
   const cb=document.getElementById('espn-auto');if(cb)cb.checked=espnAutoEnabled();
   renderGwAdmin();
   renderGTabs('admin-gtabs','setAdminGroup');
