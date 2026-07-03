@@ -1882,7 +1882,13 @@ function todayDayIndex(days){
   for(let i=0;i<days.length;i++){ if(dayDateMs(days[i])+86400000>now) return i; }
   return days.length-1;
 }
-function _scrollActive(el){setTimeout(()=>{const a=el.querySelector('.st.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},50);}
+// Centra la pestaña activa SOLO horizontalmente dentro del strip (no usa scrollIntoView, que scrollea la página al re-renderizar)
+function _scrollActive(el){setTimeout(()=>{
+  const a=el.querySelector('.st.active');if(!a)return;
+  const er=el.getBoundingClientRect(),ar=a.getBoundingClientRect();
+  const delta=(ar.left+ar.width/2)-(er.left+er.width/2);
+  if(Math.abs(delta)>1)el.scrollBy({left:delta,behavior:'smooth'});
+},50);}
 
 // Dropdown de modo (preferencia) + chips del selector según predsStage
 function renderPredsTabs(){
